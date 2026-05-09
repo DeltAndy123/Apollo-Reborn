@@ -16,6 +16,7 @@ SSZIPARCHIVE_FILES = $(wildcard ZipArchive/SSZipArchive/*.m) \
 ApolloImprovedCustomApi_FILES = \
     Tweak.xm \
     ApolloCommon.m \
+    ApolloSwiftAllocCapture.m \
     ApolloRedditMediaUpload.m \
     ApolloImageUploadHost.xm \
     ApolloState.m \
@@ -26,6 +27,7 @@ ApolloImprovedCustomApi_FILES = \
     ApolloAutoHideTabBar.xm \
     ApolloSettings.xm \
     ApolloRecentlyRead.xm \
+    ApolloSubredditWeather.xm \
     ApolloSavedCategories.xm \
     ApolloTranslation.xm \
     ApolloVideoUnmute.xm \

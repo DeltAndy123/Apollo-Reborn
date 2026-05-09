@@ -6,25 +6,16 @@
 #import "ApolloState.h"
 #import "Tweak.h"
 #import "UserDefaultConstants.h"
-#import "fishhook.h"
+#import "ApolloSwiftAllocCapture.h"
 
 // MARK: - Recently Read Posts
 
 // Direct access to ReadPostsTracker's in-memory ordered set via fishhook + ObjC runtime
 static __unsafe_unretained id sReadPostsTracker = nil;
 static Ivar sReadPostIDsIvar = NULL;
-static void *sTrackerTypeMetadata = NULL;
 
-// fishhook: briefly hook swift_allocObject to capture the ReadPostsTracker singleton
-static void *(*orig_swift_allocObject)(void *type, size_t size, size_t alignMask);
-static void *hooked_swift_allocObject(void *type, size_t size, size_t alignMask) {
-    void *obj = orig_swift_allocObject(type, size, alignMask);
-    if (type == sTrackerTypeMetadata && !sReadPostsTracker) {
-        sReadPostsTracker = (__bridge id)obj;
-        // Unhook immediately – only need one capture
-        rebind_symbols((struct rebinding[1]){{"swift_allocObject", (void *)orig_swift_allocObject, NULL}}, 1);
-    }
-    return obj;
+static void ApolloReadPostsTrackerCaptured(id object, void *context) {
+    sReadPostsTracker = object;
 }
 
 // Retrieve the in-memory NSMutableOrderedSet of read post IDs from the tracker
@@ -1155,11 +1146,7 @@ static void markPostAsReadFromLink(id self_, id link) {
 %end
 
 %ctor {
-    // Hook swift_allocObject to capture the ReadPostsTracker singleton
-    sTrackerTypeMetadata = (__bridge void *)objc_getClass("_TtC6Apollo16ReadPostsTracker");
-    if (sTrackerTypeMetadata) {
-        rebind_symbols((struct rebinding[1]){{"swift_allocObject", (void *)hooked_swift_allocObject, (void **)&orig_swift_allocObject}}, 1);
-    }
+    ApolloRegisterSwiftAllocCapture(objc_getClass("_TtC6Apollo16ReadPostsTracker"), ApolloReadPostsTrackerCaptured, NULL);
 
     %init(ProfileViewController=objc_getClass("_TtC6Apollo21ProfileViewController"));
 }
