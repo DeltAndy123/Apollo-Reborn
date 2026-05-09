@@ -19,6 +19,7 @@ ApolloImprovedCustomApi_FILES = \
     ApolloSwiftAllocCapture.m \
     ApolloRedditMediaUpload.m \
     ApolloImageUploadHost.xm \
+    ApolloCreatedAtAlert.xm \
     ApolloState.m \
     ApolloShareLinks.xm \
     ApolloMedia.xm \
