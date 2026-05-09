@@ -58,6 +58,26 @@ static NSData *OverrideDataForAccount(NSString *account) {
     return [value dataUsingEncoding:NSUTF8StringEncoding];
 }
 
+static NSURL *ApolloPlaceholderReceiptURL(void) {
+    NSString *pushServerURL = [sCustomPushServerURL stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (pushServerURL.length == 0) {
+        return nil;
+    }
+
+    NSArray<NSURL *> *cacheURLs = [[NSFileManager defaultManager] URLsForDirectory:NSCachesDirectory inDomains:NSUserDomainMask];
+    NSURL *cacheURL = cacheURLs.firstObject;
+    if (!cacheURL) {
+        return nil;
+    }
+
+    NSURL *receiptURL = [cacheURL URLByAppendingPathComponent:@"apollo-placeholder-receipt" isDirectory:NO];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:receiptURL.path]) {
+        NSData *receiptData = [@"apollo-self-hosted-notifications-receipt" dataUsingEncoding:NSUTF8StringEncoding];
+        [receiptData writeToURL:receiptURL atomically:YES];
+    }
+    return receiptURL;
+}
+
 static void *SecItemAdd_orig;
 static OSStatus SecItemAdd_replacement(CFDictionaryRef query, CFTypeRef *result) {
     NSDictionary *strippedQuery = stripGroupAccessAttr(query);
@@ -99,6 +119,20 @@ static OSStatus SecItemUpdate_replacement(CFDictionaryRef query, CFDictionaryRef
 
     return ((OSStatus (*)(CFDictionaryRef, CFDictionaryRef))SecItemUpdate_orig)((__bridge CFDictionaryRef)strippedQuery, attributesToUpdate);
 }
+
+%hook NSBundle
+
+- (NSURL *)appStoreReceiptURL {
+    NSURL *originalURL = %orig;
+    if (originalURL && [[NSFileManager defaultManager] fileExistsAtPath:originalURL.path]) {
+        return originalURL;
+    }
+
+    NSURL *placeholderURL = ApolloPlaceholderReceiptURL();
+    return placeholderURL ?: originalURL;
+}
+
+%end
 
 // --- Device detection (for Pixel Pals and Dynamic Island behaviour) ---
 // Apollo's device model mapper (sub_1007a3cdc) only recognizes models up to iPhone 14 Pro Max.
@@ -162,6 +196,111 @@ static NSArray *const blockedUrls = @[
     @"apollogur.download/api/refund_screen_config",
     @"apollogur.download/api/goodbye_wallpaper"
 ];
+
+static BOOL ApolloIsOriginalPushServerHost(NSString *host) {
+    host = host.lowercaseString;
+    return [host isEqualToString:@"apollonotifications.com"] ||
+           [host isEqualToString:@"beta.apollonotifications.com"] ||
+           [host isEqualToString:@"apollopushserver.xyz"];
+}
+
+static NSURL *ApolloCustomPushServerBaseURL(void) {
+    NSString *raw = [sCustomPushServerURL stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (raw.length == 0) {
+        return nil;
+    }
+
+    NSURLComponents *components = [NSURLComponents componentsWithString:raw];
+    if (!components.scheme.length && !components.host.length) {
+        components = [NSURLComponents componentsWithString:[@"https://" stringByAppendingString:raw]];
+    }
+
+    NSString *scheme = components.scheme.lowercaseString;
+    if ((![scheme isEqualToString:@"http"] && ![scheme isEqualToString:@"https"]) || components.host.length == 0) {
+        ApolloLog(@"[PushServer] Ignoring invalid custom push server URL: %@", raw);
+        return nil;
+    }
+
+    components.query = nil;
+    components.fragment = nil;
+    return components.URL;
+}
+
+static NSString *ApolloJoinURLPaths(NSString *basePath, NSString *suffixPath) {
+    if (basePath.length == 0 || [basePath isEqualToString:@"/"]) {
+        return suffixPath.length > 0 ? suffixPath : @"/";
+    }
+
+    if (suffixPath.length == 0 || [suffixPath isEqualToString:@"/"]) {
+        return basePath;
+    }
+
+    BOOL baseEndsWithSlash = [basePath hasSuffix:@"/"];
+    BOOL suffixStartsWithSlash = [suffixPath hasPrefix:@"/"];
+    if (baseEndsWithSlash && suffixStartsWithSlash) {
+        return [basePath stringByAppendingString:[suffixPath substringFromIndex:1]];
+    } else if (!baseEndsWithSlash && !suffixStartsWithSlash) {
+        return [[basePath stringByAppendingString:@"/"] stringByAppendingString:suffixPath];
+    }
+    return [basePath stringByAppendingString:suffixPath];
+}
+
+static NSURL *ApolloURLByRewritingPushServerURL(NSURL *url) {
+    if (![url isKindOfClass:[NSURL class]] || !ApolloIsOriginalPushServerHost(url.host)) {
+        return nil;
+    }
+
+    NSURL *baseURL = ApolloCustomPushServerBaseURL();
+    if (!baseURL) {
+        return nil;
+    }
+
+    NSURLComponents *original = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
+    NSURLComponents *base = [NSURLComponents componentsWithURL:baseURL resolvingAgainstBaseURL:NO];
+    if (!original || !base) {
+        return nil;
+    }
+
+    NSString *path = original.path ?: @"/";
+    BOOL isLegacyPushHost = [url.host.lowercaseString isEqualToString:@"apollopushserver.xyz"];
+    if ([path hasPrefix:@"/notifications/v1"]) {
+        path = [path substringFromIndex:@"/notifications".length];
+    } else if (isLegacyPushHost &&
+               ([path isEqualToString:@"/api/verify_full"] ||
+                [path isEqualToString:@"/api/verify_lifetime_ultra"])) {
+        path = @"/v1/receipt";
+    } else if (isLegacyPushHost) {
+        return nil;
+    }
+
+    base.path = ApolloJoinURLPaths(base.path, path);
+    base.query = original.query;
+    base.fragment = original.fragment;
+
+    NSURL *rewrittenURL = base.URL;
+    if (rewrittenURL) {
+        ApolloLog(@"[PushServer] Rewriting %@ -> %@", url.absoluteString, rewrittenURL.absoluteString);
+    }
+    return rewrittenURL;
+}
+
+static NSURLRequest *ApolloRequestByRewritingPushServerRequest(NSURLRequest *request) {
+    NSURL *rewrittenURL = ApolloURLByRewritingPushServerURL(request.URL);
+    if (!rewrittenURL) {
+        return nil;
+    }
+
+    NSMutableURLRequest *mutableRequest = [request mutableCopy];
+    [mutableRequest setURL:rewrittenURL];
+    [mutableRequest setValue:nil forHTTPHeaderField:@"Host"];
+
+    NSString *token = [sCustomPushServerToken stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (token.length > 0) {
+        [mutableRequest setValue:token forHTTPHeaderField:@"X-Apollo-Token"];
+    }
+
+    return mutableRequest;
+}
 
 // Cache storing subreddit list source URLs -> response body
 static NSCache<NSString *, NSString *> *subredditListCache;
@@ -337,6 +476,11 @@ static void StripRapidAPIHeaders(NSMutableURLRequest *request) {
 - (NSURLSessionDataTask *)dataTaskWithRequest:(NSURLRequest *)request {
     ApolloRedditCaptureBearerTokenFromRequest(request, @"NSURLSession dataTaskWithRequest:");
 
+    NSURLRequest *pushServerRequest = ApolloRequestByRewritingPushServerRequest(request);
+    if (pushServerRequest) {
+        return %orig(pushServerRequest);
+    }
+
     NSURLRequest *redditMediaSubmitRequest = ApolloRedditMaybeRewriteSubmitRequest(request);
     if (redditMediaSubmitRequest) {
         ApolloRedditInstallResponseTransformerForDelegate(self.delegate);
@@ -440,6 +584,11 @@ static void StripRapidAPIHeaders(NSMutableURLRequest *request) {
 - (NSURLSessionDataTask*)dataTaskWithRequest:(NSURLRequest*)request completionHandler:(void (^)(NSData*, NSURLResponse*, NSError*))completionHandler {
     ApolloRedditCaptureBearerTokenFromRequest(request, @"NSURLSession dataTaskWithRequest:completionHandler:");
 
+    NSURLRequest *pushServerRequest = ApolloRequestByRewritingPushServerRequest(request);
+    if (pushServerRequest) {
+        return %orig(pushServerRequest, completionHandler);
+    }
+
     NSURLRequest *redditMediaSubmitRequest = ApolloRedditMaybeRewriteSubmitRequest(request);
     if (redditMediaSubmitRequest) {
         void (^wrappedSubmitCompletionHandler)(NSData *, NSURLResponse *, NSError *) = ^(NSData *data, NSURLResponse *response, NSError *error) {
@@ -517,6 +666,11 @@ static void StripRapidAPIHeaders(NSMutableURLRequest *request) {
 
 // "Unproxy" Imgur requests
 - (NSURLSessionDataTask *)dataTaskWithURL:(NSURL *)url completionHandler:(void (^)(NSData *, NSURLResponse *, NSError *))completionHandler {
+    NSURLRequest *pushServerRequest = ApolloRequestByRewritingPushServerRequest([NSURLRequest requestWithURL:url]);
+    if (pushServerRequest) {
+        return [self dataTaskWithRequest:pushServerRequest completionHandler:completionHandler];
+    }
+
     if ([url.host isEqualToString:@"apollogur.download"]) {
         NSString *imageID = [url.lastPathComponent stringByDeletingPathExtension];
 
@@ -642,6 +796,15 @@ static void StripRapidAPIHeaders(NSMutableURLRequest *request) {
 
     NSURL *requestURL = request.URL;
     NSString *requestString = requestURL.absoluteString;
+
+    NSURLRequest *pushServerRequest = ApolloRequestByRewritingPushServerRequest(request);
+    if (pushServerRequest) {
+        [self setValue:pushServerRequest forKey:@"_originalRequest"];
+        [self setValue:pushServerRequest forKey:@"_currentRequest"];
+        request = pushServerRequest;
+        requestURL = request.URL;
+        requestString = requestURL.absoluteString;
+    }
 
     // Drop blocked URLs
     for (NSString *blockedUrl in blockedUrls) {
@@ -864,6 +1027,8 @@ static void initializeRandomSources() {
                                     UDKeyPreferredGIFFallbackFormat: @1,
                                     UDKeyUnmuteCommentsVideos: @0,
                                     UDKeyProxyImgurDDG: @NO,
+                                    UDKeyCustomPushServerURL: @"",
+                                    UDKeyCustomPushServerToken: @"",
                                     UDKeyImageUploadProvider: @(ImageUploadProviderImgur),
                                     UDKeyEnableBulkTranslation: @NO,
                                     UDKeyAutoTranslateOnAppear: @YES,
@@ -890,6 +1055,8 @@ static void initializeRandomSources() {
     sReadPostMaxCount = [[NSUserDefaults standardUserDefaults] integerForKey:UDKeyReadPostMaxCount];
     sUnmuteCommentsVideos = [[NSUserDefaults standardUserDefaults] integerForKey:UDKeyUnmuteCommentsVideos];
     sProxyImgurDDG = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyProxyImgurDDG];
+    sCustomPushServerURL = (NSString *)[[[NSUserDefaults standardUserDefaults] objectForKey:UDKeyCustomPushServerURL] ?: @"" copy];
+    sCustomPushServerToken = (NSString *)[[[NSUserDefaults standardUserDefaults] objectForKey:UDKeyCustomPushServerToken] ?: @"" copy];
     sImageUploadProvider = [[NSUserDefaults standardUserDefaults] integerForKey:UDKeyImageUploadProvider];
     sEnableBulkTranslation = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyEnableBulkTranslation];
     sAutoTranslateOnAppear = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyAutoTranslateOnAppear];

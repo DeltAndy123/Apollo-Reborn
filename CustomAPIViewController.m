@@ -20,6 +20,49 @@ typedef NS_ENUM(NSInteger, SectionIndex) {
     SectionCount
 };
 
+typedef NS_ENUM(NSInteger, PushBundleIDStatus) {
+    PushBundleIDStatusNotConfigured = 0,
+    PushBundleIDStatusChecking,
+    PushBundleIDStatusMatch,
+    PushBundleIDStatusMismatch,
+    PushBundleIDStatusError,
+};
+
+@interface CustomAPIViewController ()
+@property (nonatomic, assign) PushBundleIDStatus pushBundleIDStatus;
+@property (nonatomic, copy) NSString *pushBundleIDServerURL;
+@property (nonatomic, copy) NSString *pushBundleIDRequiredBundleID;
+@end
+
+@interface ApolloInsetLabel : UILabel
+@property (nonatomic, assign) UIEdgeInsets textInsets;
+@end
+
+@implementation ApolloInsetLabel
+
+- (void)drawTextInRect:(CGRect)rect {
+    [super drawTextInRect:UIEdgeInsetsInsetRect(rect, self.textInsets)];
+}
+
+- (CGSize)intrinsicContentSize {
+    CGSize size = [super intrinsicContentSize];
+    size.width += self.textInsets.left + self.textInsets.right;
+    size.height += self.textInsets.top + self.textInsets.bottom;
+    return size;
+}
+
+- (CGRect)textRectForBounds:(CGRect)bounds limitedToNumberOfLines:(NSInteger)numberOfLines {
+    CGRect insetBounds = UIEdgeInsetsInsetRect(bounds, self.textInsets);
+    CGRect rect = [super textRectForBounds:insetBounds limitedToNumberOfLines:numberOfLines];
+    rect.origin.x -= self.textInsets.left;
+    rect.origin.y -= self.textInsets.top;
+    rect.size.width += self.textInsets.left + self.textInsets.right;
+    rect.size.height += self.textInsets.top + self.textInsets.bottom;
+    return rect;
+}
+
+@end
+
 @implementation CustomAPIViewController
 
 typedef NS_ENUM(NSInteger, Tag) {
@@ -32,6 +75,8 @@ typedef NS_ENUM(NSInteger, Tag) {
     TagRandNsfwSubredditsSource,
     TagTrendingLimit,
     TagReadPostMaxCount,
+    TagCustomPushServerURL,
+    TagCustomPushServerToken,
 };
 
 #pragma mark - Helpers
@@ -68,6 +113,139 @@ typedef NS_ENUM(NSInteger, Tag) {
         }
     }
     return NO;
+}
+
+- (BOOL)isCustomPushServerURLValid:(NSString *)urlString {
+    if (urlString.length == 0) {
+        return YES;
+    }
+
+    NSURLComponents *components = [NSURLComponents componentsWithString:urlString];
+    NSString *scheme = components.scheme.lowercaseString;
+    return ([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"]) && components.host.length > 0;
+}
+
+- (NSString *)normalizedCustomPushServerURLString:(NSString *)urlString {
+    NSString *trimmed = [urlString stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (trimmed.length == 0) {
+        return @"";
+    }
+
+    NSURLComponents *components = [NSURLComponents componentsWithString:trimmed];
+    if (components.scheme.length == 0 && components.host.length == 0) {
+        components = [NSURLComponents componentsWithString:[@"https://" stringByAppendingString:trimmed]];
+    }
+
+    NSString *scheme = components.scheme.lowercaseString;
+    if ((![scheme isEqualToString:@"http"] && ![scheme isEqualToString:@"https"]) || components.host.length == 0) {
+        return trimmed;
+    }
+
+    components.query = nil;
+    components.fragment = nil;
+    return components.URL.absoluteString ?: trimmed;
+}
+
+- (NSURL *)customPushServerBundleIDURL {
+    NSString *normalized = [self normalizedCustomPushServerURLString:sCustomPushServerURL ?: @""];
+    NSURLComponents *components = [NSURLComponents componentsWithString:normalized];
+    if (![self isCustomPushServerURLValid:normalized] || components.host.length == 0) {
+        return nil;
+    }
+
+    NSString *basePath = components.path ?: @"";
+    if (basePath.length == 0 || [basePath isEqualToString:@"/"]) {
+        components.path = @"/v1/bundle_id";
+    } else {
+        components.path = [basePath stringByAppendingPathComponent:@"v1/bundle_id"];
+    }
+    components.query = nil;
+    components.fragment = nil;
+    return components.URL;
+}
+
+- (NSString *)pushBundleIDBadgeText {
+    switch (self.pushBundleIDStatus) {
+        case PushBundleIDStatusChecking: return @"Checking";
+        case PushBundleIDStatusMatch: return @"Bundle ID Match";
+        case PushBundleIDStatusMismatch: return @"Bundle ID Mismatch";
+        case PushBundleIDStatusError: return @"Unable to Check";
+        case PushBundleIDStatusNotConfigured:
+        default: return nil;
+    }
+}
+
+- (UIColor *)pushBundleIDBadgeTextColor {
+    switch (self.pushBundleIDStatus) {
+        case PushBundleIDStatusMatch: return [UIColor systemGreenColor];
+        case PushBundleIDStatusMismatch: return [UIColor systemRedColor];
+        case PushBundleIDStatusError: return [UIColor systemOrangeColor];
+        case PushBundleIDStatusChecking: return [UIColor secondaryLabelColor];
+        case PushBundleIDStatusNotConfigured:
+        default: return [UIColor secondaryLabelColor];
+    }
+}
+
+- (UIColor *)pushBundleIDBadgeBackgroundColor {
+    return [[self pushBundleIDBadgeTextColor] colorWithAlphaComponent:0.16];
+}
+
+- (void)reloadPushServerRow {
+    NSIndexPath *indexPath = [NSIndexPath indexPathForRow:7 inSection:SectionGeneral];
+    if ([[self.tableView indexPathsForVisibleRows] containsObject:indexPath]) {
+        [self.tableView reloadRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationNone];
+    }
+}
+
+- (void)refreshPushServerBundleIDStatus {
+    NSURL *url = [self customPushServerBundleIDURL];
+    NSString *normalizedServerURL = [self normalizedCustomPushServerURLString:sCustomPushServerURL ?: @""];
+    if (!url) {
+        self.pushBundleIDStatus = PushBundleIDStatusNotConfigured;
+        self.pushBundleIDServerURL = nil;
+        self.pushBundleIDRequiredBundleID = nil;
+        [self reloadPushServerRow];
+        return;
+    }
+
+    self.pushBundleIDStatus = PushBundleIDStatusChecking;
+    self.pushBundleIDServerURL = normalizedServerURL;
+    self.pushBundleIDRequiredBundleID = nil;
+    [self reloadPushServerRow];
+
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+    request.timeoutInterval = 8.0;
+    NSString *token = [sCustomPushServerToken stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (token.length > 0) {
+        [request setValue:token forHTTPHeaderField:@"X-Apollo-Token"];
+    }
+
+    NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        PushBundleIDStatus status = PushBundleIDStatusError;
+        NSString *requiredBundleID = nil;
+
+        NSHTTPURLResponse *httpResponse = [response isKindOfClass:[NSHTTPURLResponse class]] ? (NSHTTPURLResponse *)response : nil;
+        if (!error && httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 && data.length > 0) {
+            NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+            if ([json isKindOfClass:[NSDictionary class]]) {
+                requiredBundleID = [json[@"bundle_id"] isKindOfClass:[NSString class]] ? json[@"bundle_id"] : nil;
+                NSString *installedBundleID = [[NSBundle mainBundle] bundleIdentifier];
+                if (requiredBundleID.length > 0 && installedBundleID.length > 0) {
+                    status = [requiredBundleID isEqualToString:installedBundleID] ? PushBundleIDStatusMatch : PushBundleIDStatusMismatch;
+                }
+            }
+        }
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (![self.pushBundleIDServerURL isEqualToString:normalizedServerURL]) {
+                return;
+            }
+            self.pushBundleIDStatus = status;
+            self.pushBundleIDRequiredBundleID = requiredBundleID;
+            [self reloadPushServerRow];
+        });
+    }];
+    [task resume];
 }
 
 - (UIImage *)decodeBase64ToImage:(NSString *)strEncodeData {
@@ -228,6 +406,7 @@ typedef NS_ENUM(NSInteger, Tag) {
 
     self.title = @"Custom API";
     self.tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
+    [self refreshPushServerBundleIDStatus];
 }
 
 #pragma mark - UITableViewDataSource
@@ -240,7 +419,7 @@ typedef NS_ENUM(NSInteger, Tag) {
     switch (section) {
         case SectionBackupRestore: return 2;
         case SectionAPIKeys: return 6; // 4 text fields + Can't sign in? + Instructions
-        case SectionGeneral: return 7;
+        case SectionGeneral: return 9;
         case SectionMedia: return 4;
         case SectionSubreddits: return 5;
         case SectionAbout: return 3; // GitHub repo link + version + export logs
@@ -543,6 +722,73 @@ typedef NS_ENUM(NSInteger, Tag) {
                                             label:@"Open Steam Links in App"
                                                on:[defaults boolForKey:UDKeyOpenLinksInSteamApp]
                                            action:@selector(steamAppSwitchToggled:)];
+        case 7: {
+            NSString *detail = @"Optional. Routes Apollo notification enrollment, settings, watchers, tests, and receipt checks to a self-hosted apollo-backend server.";
+            NSString *installedBundleID = [[NSBundle mainBundle] bundleIdentifier] ?: @"unknown";
+            if (self.pushBundleIDRequiredBundleID.length > 0) {
+                detail = [detail stringByAppendingFormat:@"\nInstalled bundle ID: %@\nServer bundle ID: %@", installedBundleID, self.pushBundleIDRequiredBundleID];
+            }
+
+            UITableViewCell *cell = [self stackedTextFieldCellWithIdentifier:@"Cell_Gen_PushServer"
+                                                                      label:@"Push Notification Server"
+                                                                placeholder:@"https://your-server.example.com"
+                                                                       text:sCustomPushServerURL
+                                                                        tag:TagCustomPushServerURL
+                                                                     detail:detail];
+            UILabel *badgeLabel = [cell.contentView viewWithTag:9100];
+            if (!badgeLabel) {
+                ApolloInsetLabel *insetBadgeLabel = [[ApolloInsetLabel alloc] init];
+                insetBadgeLabel.textInsets = UIEdgeInsetsMake(2, 4, 2, 4);
+                badgeLabel = insetBadgeLabel;
+                badgeLabel.tag = 9100;
+                badgeLabel.font = [UIFont systemFontOfSize:11 weight:UIFontWeightSemibold];
+                badgeLabel.textAlignment = NSTextAlignmentCenter;
+                badgeLabel.layer.cornerRadius = 5;
+                badgeLabel.layer.masksToBounds = YES;
+                badgeLabel.translatesAutoresizingMaskIntoConstraints = NO;
+                [cell.contentView addSubview:badgeLabel];
+
+                UILabel *captionLabel = [cell.contentView viewWithTag:9000];
+                UILayoutGuide *margins = cell.contentView.layoutMarginsGuide;
+                [NSLayoutConstraint activateConstraints:@[
+                    [badgeLabel.centerYAnchor constraintEqualToAnchor:captionLabel.centerYAnchor],
+                    [badgeLabel.trailingAnchor constraintEqualToAnchor:margins.trailingAnchor],
+                    [badgeLabel.heightAnchor constraintGreaterThanOrEqualToConstant:20],
+                ]];
+            }
+
+            NSString *badgeText = [self pushBundleIDBadgeText];
+            badgeLabel.hidden = (badgeText.length == 0);
+            badgeLabel.text = badgeText;
+            badgeLabel.textColor = [self pushBundleIDBadgeTextColor];
+            badgeLabel.backgroundColor = [self pushBundleIDBadgeBackgroundColor];
+
+            for (UIView *subview in cell.contentView.subviews) {
+                if ([subview isKindOfClass:[UITextField class]]) {
+                    UITextField *tf = (UITextField *)subview;
+                    tf.secureTextEntry = NO;
+                    tf.textColor = [self isCustomPushServerURLValid:sCustomPushServerURL] ? [UIColor labelColor] : [UIColor systemRedColor];
+                    break;
+                }
+            }
+            return cell;
+        }
+        case 8: {
+            UITableViewCell *cell = [self stackedTextFieldCellWithIdentifier:@"Cell_Gen_PushServerToken"
+                                                                      label:@"Push Server Token"
+                                                                placeholder:@"APOLLO_SECRET_TOKEN"
+                                                                       text:sCustomPushServerToken
+                                                                        tag:TagCustomPushServerToken
+                                                                     detail:@"Optional. Sent as X-Apollo-Token for forked apollo-backend instances that set APOLLO_SECRET_TOKEN."];
+            for (UIView *subview in cell.contentView.subviews) {
+                if ([subview isKindOfClass:[UITextField class]]) {
+                    UITextField *tf = (UITextField *)subview;
+                    tf.secureTextEntry = YES;
+                    break;
+                }
+            }
+            return cell;
+        }
         default: return [[UITableViewCell alloc] init];
     }
 }
@@ -743,6 +989,10 @@ typedef NS_ENUM(NSInteger, Tag) {
     } else if (section == SectionMedia) {
         text = [[NSMutableAttributedString alloc]
             initWithString:@"Image Upload Host selects where Apollo uploads images attached to posts and comments. \"Reddit\" is experimental and does not support multi-image or video uploads.\n\nProxying routes Imgur image requests through DuckDuckGo to bypass regional blocks; albums and uploads are unsupported by the proxy."
+            attributes:plainAttrs];
+    } else if (section == SectionGeneral) {
+        text = [[NSMutableAttributedString alloc]
+            initWithString:@"Push Notification Server should be the base URL of your apollo-backend instance, for example https://example.com. Leave empty to keep Apollo's built-in notification behavior."
             attributes:plainAttrs];
     } else {
         return nil;
@@ -1061,6 +1311,17 @@ typedef NS_ENUM(NSInteger, Tag) {
         textField.text = [textField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
         sReadPostMaxCount = [textField.text integerValue];
         [[NSUserDefaults standardUserDefaults] setInteger:sReadPostMaxCount forKey:UDKeyReadPostMaxCount];
+    } else if (textField.tag == TagCustomPushServerURL) {
+        textField.text = [self normalizedCustomPushServerURLString:textField.text];
+        sCustomPushServerURL = textField.text;
+        [[NSUserDefaults standardUserDefaults] setValue:sCustomPushServerURL forKey:UDKeyCustomPushServerURL];
+        textField.textColor = [self isCustomPushServerURLValid:sCustomPushServerURL] ? [UIColor labelColor] : [UIColor systemRedColor];
+        [self refreshPushServerBundleIDStatus];
+    } else if (textField.tag == TagCustomPushServerToken) {
+        textField.text = [textField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        sCustomPushServerToken = textField.text;
+        [[NSUserDefaults standardUserDefaults] setValue:sCustomPushServerToken forKey:UDKeyCustomPushServerToken];
+        [self refreshPushServerBundleIDStatus];
     }
 }
 
@@ -1300,6 +1561,8 @@ static NSString *const kGroupSuiteName = @"group.com.christianselig.apollo";
     sRandomSubredditsSource = [defaults stringForKey:UDKeyRandomSubredditsSource];
     sRandNsfwSubredditsSource = [defaults stringForKey:UDKeyRandNsfwSubredditsSource];
     sTrendingSubredditsLimit = [defaults stringForKey:UDKeyTrendingSubredditsLimit];
+    sCustomPushServerURL = [defaults stringForKey:UDKeyCustomPushServerURL];
+    sCustomPushServerToken = [defaults stringForKey:UDKeyCustomPushServerToken];
     sReadPostMaxCount = [defaults integerForKey:UDKeyReadPostMaxCount];
     sShowRecentlyReadThumbnails = [defaults boolForKey:UDKeyShowRecentlyReadThumbnails];
     sPreferredGIFFallbackFormat = ([defaults integerForKey:UDKeyPreferredGIFFallbackFormat] == 0) ? 0 : 1;
