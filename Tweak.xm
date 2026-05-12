@@ -1029,6 +1029,7 @@ static void initializeRandomSources() {
                                     UDKeyProxyImgurDDG: @NO,
                                     UDKeyCustomPushServerURL: @"",
                                     UDKeyCustomPushServerToken: @"",
+                                    UDKeyEnableInlineImages: @YES,
                                     UDKeyImageUploadProvider: @(ImageUploadProviderImgur),
                                     UDKeyEnableBulkTranslation: @NO,
                                     UDKeyAutoTranslateOnAppear: @YES,
@@ -1057,6 +1058,7 @@ static void initializeRandomSources() {
     sProxyImgurDDG = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyProxyImgurDDG];
     sCustomPushServerURL = (NSString *)[[[NSUserDefaults standardUserDefaults] objectForKey:UDKeyCustomPushServerURL] ?: @"" copy];
     sCustomPushServerToken = (NSString *)[[[NSUserDefaults standardUserDefaults] objectForKey:UDKeyCustomPushServerToken] ?: @"" copy];
+    sEnableInlineImages = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyEnableInlineImages];
     sImageUploadProvider = [[NSUserDefaults standardUserDefaults] integerForKey:UDKeyImageUploadProvider];
     sEnableBulkTranslation = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyEnableBulkTranslation];
     sAutoTranslateOnAppear = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyAutoTranslateOnAppear];
