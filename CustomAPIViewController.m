@@ -419,7 +419,7 @@ typedef NS_ENUM(NSInteger, Tag) {
     switch (section) {
         case SectionBackupRestore: return 2;
         case SectionAPIKeys: return 6; // 4 text fields + Can't sign in? + Instructions
-        case SectionGeneral: return 9;
+        case SectionGeneral: return 10;
         case SectionMedia: return 5;
         case SectionSubreddits: return 5;
         case SectionAbout: return 3; // GitHub repo link + version + export logs
@@ -722,7 +722,12 @@ typedef NS_ENUM(NSInteger, Tag) {
                                             label:@"Open Steam Links in App"
                                                on:[defaults boolForKey:UDKeyOpenLinksInSteamApp]
                                            action:@selector(steamAppSwitchToggled:)];
-        case 7: {
+        case 7:
+            return [self switchCellWithIdentifier:@"Cell_Gen_HideNextParent"
+                                            label:@"Hide Next Parent Button"
+                                               on:[defaults boolForKey:UDKeyHideNextParentButton]
+                                           action:@selector(hideNextParentButtonSwitchToggled:)];
+        case 8: {
             NSString *detail = @"Optional. Routes Apollo notification enrollment, settings, watchers, tests, and receipt checks to a self-hosted apollo-backend server.";
             NSString *installedBundleID = [[NSBundle mainBundle] bundleIdentifier] ?: @"unknown";
             if (self.pushBundleIDRequiredBundleID.length > 0) {
@@ -773,7 +778,7 @@ typedef NS_ENUM(NSInteger, Tag) {
             }
             return cell;
         }
-        case 8: {
+        case 9: {
             UITableViewCell *cell = [self stackedTextFieldCellWithIdentifier:@"Cell_Gen_PushServerToken"
                                                                       label:@"Push Server Token"
                                                                 placeholder:@"APOLLO_SECRET_TOKEN"
@@ -1352,6 +1357,11 @@ typedef NS_ENUM(NSInteger, Tag) {
 
 - (void)steamAppSwitchToggled:(UISwitch *)sender {
     [[NSUserDefaults standardUserDefaults] setBool:sender.isOn forKey:UDKeyOpenLinksInSteamApp];
+}
+
+- (void)hideNextParentButtonSwitchToggled:(UISwitch *)sender {
+    [[NSUserDefaults standardUserDefaults] setBool:sender.isOn forKey:UDKeyHideNextParentButton];
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"ApolloHideNextParentButtonChanged" object:nil];
 }
 
 - (void)collapsePinnedCommentsSwitchToggled:(UISwitch *)sender {

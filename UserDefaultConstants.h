@@ -19,6 +19,7 @@ static NSString *const UDKeyCollapsePinnedComments = @"CollapsePinnedComments";
 static NSString *const UDKeyFilterNSFWRecentlyRead = @"FilterNSFWRecentlyRead";
 static NSString *const UDKeyProxyImgurDDG = @"ProxyImgurDDG";
 static NSString *const UDKeyImageUploadProvider = @"ImageUploadProvider";
+static NSString *const UDKeyHideNextParentButton = @"HideNextParentButton";
 static NSString *const UDKeyCustomPushServerURL = @"CustomPushServerURL";
 static NSString *const UDKeyCustomPushServerToken = @"CustomPushServerToken";
 // Render image URLs (i.redd.it, preview.redd.it, i.imgur.com, generic .png/.jpg/.jpeg/.webp)
