@@ -19,6 +19,7 @@ extern NSInteger sReadPostMaxCount;
 extern NSInteger sUnmuteCommentsVideos;
 
 extern BOOL sProxyImgurDDG;
+extern BOOL sShowUserAvatars;
 extern NSString *sCustomPushServerURL;
 extern NSString *sCustomPushServerToken;
 

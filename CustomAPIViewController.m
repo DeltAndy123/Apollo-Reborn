@@ -420,7 +420,7 @@ typedef NS_ENUM(NSInteger, Tag) {
         case SectionBackupRestore: return 2;
         case SectionAPIKeys: return 6; // 4 text fields + Can't sign in? + Instructions
         case SectionGeneral: return 10;
-        case SectionMedia: return 5;
+    case SectionMedia: return 6;
         case SectionSubreddits: return 5;
         case SectionAbout: return 3; // GitHub repo link + version + export logs
         case SectionCredits: return 3;
@@ -846,6 +846,11 @@ typedef NS_ENUM(NSInteger, Tag) {
                                             label:@"Inline Media Previews"
                                                on:[[NSUserDefaults standardUserDefaults] boolForKey:UDKeyEnableInlineImages]
                                            action:@selector(inlineImagesSwitchToggled:)];
+        case 5:
+            return [self switchCellWithIdentifier:@"Cell_Media_UserAvatars"
+                                            label:@"Show User Profile Pictures"
+                                               on:[[NSUserDefaults standardUserDefaults] boolForKey:UDKeyShowUserAvatars]
+                                           action:@selector(userAvatarsSwitchToggled:)];
         default: return [[UITableViewCell alloc] init];
     }
 }
@@ -1375,6 +1380,12 @@ typedef NS_ENUM(NSInteger, Tag) {
 - (void)proxyImgurDDGSwitchToggled:(UISwitch *)sender {
     sProxyImgurDDG = sender.isOn;
     [[NSUserDefaults standardUserDefaults] setBool:sProxyImgurDDG forKey:UDKeyProxyImgurDDG];
+}
+
+- (void)userAvatarsSwitchToggled:(UISwitch *)sender {
+    sShowUserAvatars = sender.isOn;
+    [[NSUserDefaults standardUserDefaults] setBool:sShowUserAvatars forKey:UDKeyShowUserAvatars];
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"ApolloUserAvatarsToggleChangedNotification" object:nil];
 }
 
 - (void)inlineImagesSwitchToggled:(UISwitch *)sender {
