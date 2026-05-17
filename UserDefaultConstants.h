@@ -20,6 +20,7 @@ static NSString *const UDKeyFilterNSFWRecentlyRead = @"FilterNSFWRecentlyRead";
 static NSString *const UDKeyProxyImgurDDG = @"ProxyImgurDDG";
 static NSString *const UDKeyImageUploadProvider = @"ImageUploadProvider";
 static NSString *const UDKeyShowUserAvatars = @"ShowUserAvatars";
+static NSString *const UDKeyUseProfileAvatarTabIcon = @"UseProfileAvatarTabIcon";
 static NSString *const UDKeyAutoHideTabBarShowOnIdle = @"AutoHideTabBarShowOnIdle";
 static NSString *const UDKeyCustomPushServerURL = @"CustomPushServerURL";
 static NSString *const UDKeyCustomPushServerToken = @"CustomPushServerToken";

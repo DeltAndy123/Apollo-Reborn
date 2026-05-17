@@ -19,6 +19,7 @@ NSInteger sUnmuteCommentsVideos = 0; // 0=Default, 1=Remember from Full Screen, 
 
 BOOL sProxyImgurDDG = NO;
 BOOL sShowUserAvatars = NO;
+BOOL sUseProfileAvatarTabIcon = NO;
 BOOL sAutoHideTabBarShowOnIdle = NO;
 NSString *sCustomPushServerURL = nil;
 NSString *sCustomPushServerToken = nil;

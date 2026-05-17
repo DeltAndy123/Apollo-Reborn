@@ -20,6 +20,7 @@ extern NSInteger sUnmuteCommentsVideos;
 
 extern BOOL sProxyImgurDDG;
 extern BOOL sShowUserAvatars;
+extern BOOL sUseProfileAvatarTabIcon;
 extern NSString *sCustomPushServerURL;
 extern NSString *sCustomPushServerToken;
 extern BOOL sAutoHideTabBarShowOnIdle;
