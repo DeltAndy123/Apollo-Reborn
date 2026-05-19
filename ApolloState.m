@@ -24,6 +24,9 @@ BOOL sAutoHideTabBarShowOnIdle = NO;
 NSString *sCustomPushServerURL = nil;
 NSString *sCustomPushServerToken = nil;
 BOOL sEnableInlineImages = NO;
+NSInteger sLinkPreviewBodyMode = ApolloLinkPreviewModeOff;
+NSInteger sLinkPreviewCommentsMode = ApolloLinkPreviewModeOff;
+NSInteger sLinkPreviewCardColor = ApolloLinkPreviewCardColorNeutral;
 NSInteger sImageUploadProvider = ImageUploadProviderImgur;
 
 NSString *sLatestRedditBearerToken = nil;
