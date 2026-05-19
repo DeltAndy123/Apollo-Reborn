@@ -765,7 +765,7 @@ typedef NS_ENUM(NSInteger, Tag) {
         case SectionAPIKeys: return 6; // 4 text fields + Can't sign in? + Instructions
         case SectionGeneral: return 10;
         case SectionMedia: return [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyShowUserAvatars] ? 12 : 11;
-        case SectionSubreddits: return 5;
+        case SectionSubreddits: return 6;
         case SectionAbout: return 4; // GitHub + Thanks To + Export Logs + Version
         default: return 0;
     }
@@ -1274,30 +1274,35 @@ typedef NS_ENUM(NSInteger, Tag) {
 - (UITableViewCell *)subredditCellForRow:(NSInteger)row tableView:(UITableView *)tableView {
     switch (row) {
         case 0:
+            return [self switchCellWithIdentifier:@"Cell_Sub_ModernDividers"
+                                            label:@"Modern Subreddit Dividers"
+                                               on:[[NSUserDefaults standardUserDefaults] boolForKey:UDKeyModernSubredditDividers]
+                                           action:@selector(modernSubredditDividersSwitchToggled:)];
+        case 1:
             return [self textFieldCellWithIdentifier:@"Cell_Sub_TrendLimit"
                                                label:@"Trending Subreddits Limit"
                                          placeholder:@"(unlimited)"
                                                 text:sTrendingSubredditsLimit
                                                  tag:TagTrendingLimit
                                            numerical:YES];
-        case 1:
+        case 2:
             return [self stackedTextFieldCellWithIdentifier:@"Cell_Sub_Trending"
                                                       label:@"Trending Source"
                                                 placeholder:defaultTrendingSubredditsSource
                                                        text:sTrendingSubredditsSource
                                                         tag:TagTrendingSubredditsSource];
-        case 2:
+        case 3:
             return [self stackedTextFieldCellWithIdentifier:@"Cell_Sub_Random"
                                                       label:@"Random Source"
                                                 placeholder:defaultRandomSubredditsSource
                                                        text:sRandomSubredditsSource
                                                         tag:TagRandomSubredditsSource];
-        case 3:
+        case 4:
             return [self switchCellWithIdentifier:@"Cell_Sub_RandNSFW"
                                             label:@"Show RandNSFW in Search"
                                                on:[[NSUserDefaults standardUserDefaults] boolForKey:UDKeyShowRandNsfw]
                                            action:@selector(randNsfwSwitchToggled:)];
-        case 4:
+        case 5:
             return [self stackedTextFieldCellWithIdentifier:@"Cell_Sub_RandNSFW_Source"
                                                       label:@"RandNSFW Source"
                                                 placeholder:@"(empty)"
@@ -1779,6 +1784,12 @@ typedef NS_ENUM(NSInteger, Tag) {
 
 - (void)randNsfwSwitchToggled:(UISwitch *)sender {
     [[NSUserDefaults standardUserDefaults] setBool:sender.isOn forKey:UDKeyShowRandNsfw];
+}
+
+- (void)modernSubredditDividersSwitchToggled:(UISwitch *)sender {
+    sModernSubredditDividers = sender.isOn;
+    [[NSUserDefaults standardUserDefaults] setBool:sModernSubredditDividers forKey:UDKeyModernSubredditDividers];
+    [[NSNotificationCenter defaultCenter] postNotificationName:ApolloModernSubredditDividersChangedNotification object:nil];
 }
 
 - (void)showRecentlyReadThumbnailsSwitchToggled:(UISwitch *)sender {

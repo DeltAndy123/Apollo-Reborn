@@ -24,6 +24,7 @@ extern BOOL sUseProfileAvatarTabIcon;
 extern NSString *sCustomPushServerURL;
 extern NSString *sCustomPushServerToken;
 extern BOOL sAutoHideTabBarShowOnIdle;
+extern BOOL sModernSubredditDividers;
 
 // Render image URLs inline in post selftext and comments. Defaults to YES on
 // fresh installs (registerDefaults). When NO, Apollo's native behavior (text

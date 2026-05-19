@@ -38,6 +38,7 @@ ApolloImprovedCustomApi_FILES = \
     ApolloTranslation.xm \
     ApolloVideoUnmute.xm \
     ApolloVideoSwipeFix.xm \
+    ApolloSubredditIndexPolish.xm \
     ApolloTagFilters.xm \
     ApolloLinkPreviewModel.m \
     ApolloLinkPreviewCache.m \

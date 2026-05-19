@@ -21,6 +21,7 @@ BOOL sProxyImgurDDG = NO;
 BOOL sShowUserAvatars = NO;
 BOOL sUseProfileAvatarTabIcon = NO;
 BOOL sAutoHideTabBarShowOnIdle = NO;
+BOOL sModernSubredditDividers = YES;
 NSString *sCustomPushServerURL = nil;
 NSString *sCustomPushServerToken = nil;
 BOOL sEnableInlineImages = NO;
