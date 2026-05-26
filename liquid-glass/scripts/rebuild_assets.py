@@ -65,9 +65,10 @@ SYMBOL_SVG_RE = re.compile(
 # We only care about the base scale files (no numbered suffix = appearance 0 / universal-any)
 RASTER_PNG_RE = re.compile(r'^(.+)_Normal(@2x|@3x)?\.png$')
 
-RENDERING_INTENTS = {}      # asset name -> original/template/automatic
-TEMPLATE_ASSETS   = set()   # asset names that need template-rendering-intent
-SYMBOL_ASSETS     = set()   # asset names that have SVG glyph variants
+RENDERING_INTENTS  = {}      # asset name -> original/template/automatic
+TEMPLATE_ASSETS    = set()   # asset names that need template-rendering-intent
+SYMBOL_ASSETS      = set()   # asset names that have SVG glyph variants
+VECTOR_PRESERVED   = set()   # asset names whose original rasters carry Preserved Vector Representation
 
 PREVIEW_VARIANTS  = ["default", "dark", "clear-light", "clear-dark"]
 
@@ -83,7 +84,7 @@ def load_metadata():
       rendering_intents:   dict of asset names to template-rendering-intent values
       symbol_assets:       set of asset names that have Glyph Size entries (SF Symbol-style)
     """
-    global RENDERING_INTENTS, TEMPLATE_ASSETS, SYMBOL_ASSETS
+    global RENDERING_INTENTS, TEMPLATE_ASSETS, SYMBOL_ASSETS, VECTOR_PRESERVED
 
     print(f"Reading metadata from {ORIGINAL_CAR}...")
     result = subprocess.run(
@@ -117,8 +118,12 @@ def load_metadata():
         if e.get("Glyph Size"):
             SYMBOL_ASSETS.add(name)
 
+        if e.get("Preserved Vector Representation"):
+            VECTOR_PRESERVED.add(name)
+
     print(f"  {len(rendition_to_assets)} unique rendition stems")
-    print(f"  {len(TEMPLATE_ASSETS)} template assets, {len(SYMBOL_ASSETS)} symbol assets")
+    print(f"  {len(TEMPLATE_ASSETS)} template assets, {len(SYMBOL_ASSETS)} symbol assets, "
+          f"{len(VECTOR_PRESERVED)} vector-preserved assets")
     return rendition_to_assets
 
 
@@ -296,7 +301,10 @@ def write_raster_imageset(name, entries, xcassets_path):
 
     has_pdf = any(fp.endswith(".pdf") for (fp, _, _) in entries)
     properties = {"template-rendering-intent": rendering_intent(name)}
-    if has_pdf:
+    # Only preserve vector representation for assets that had it in the original catalog.
+    # Applying it broadly (e.g. to launch-icon/launch-bg) causes the launch screen renderer
+    # to skip the pre-rasterized bitmaps and attempt PDF rendering, which fails silently.
+    if has_pdf and name in VECTOR_PRESERVED:
         properties["preserves-vector-representation"] = True
 
     contents = {"images": images, "info": {"author": "xcode", "version": 1}, "properties": properties}
