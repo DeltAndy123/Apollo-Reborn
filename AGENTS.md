@@ -33,6 +33,7 @@ scripts/run-in-sim.sh --drive      # after launch, capture the idb accessibility
 scripts/run-in-sim.sh --fresh-app  # re-patch the base IPA from scratch (after a new apollo-base.ipa)
 scripts/run-in-sim.sh --dark       # boot the simulator in dark mode (--light forces light)
 scripts/run-in-sim.sh --glass      # apply the iOS 26 Liquid Glass patch (--no-glass disables)
+scripts/run-in-sim.sh --ipad       # use an iPad simulator (separate device: Apollo-Sim-iPad)
 scripts/run-in-sim.sh --backup B.zip  # preload an Apollo settings backup (API keys + account)
 BUNDLE_ID=com.you.Build scripts/run-in-sim.sh   # run under a custom (rebranded) bundle id
 ```

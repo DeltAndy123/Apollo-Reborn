@@ -21,6 +21,7 @@
 #   scripts/run-in-sim.sh --drive         # after launch, run an idb UI smoke test (tree + screenshot)
 #   scripts/run-in-sim.sh --dark          # boot the simulator in dark mode (--light forces light)
 #   scripts/run-in-sim.sh --glass         # apply the iOS 26 Liquid Glass patch (--no-glass disables)
+#   scripts/run-in-sim.sh --ipad          # use an iPad simulator (separate device: Apollo-Sim-iPad)
 #   BUNDLE_ID=com.you.Build scripts/run-in-sim.sh
 #                                         # run under a custom bundle id (rebrands the app + appex
 #                                         # so it matches your installed device build)
@@ -31,6 +32,7 @@
 #   SIM_NAME (Apollo-Sim)  SIM_DEVICE_TYPE (iPhone 16 Pro)  SIM_RUNTIME (newest iOS)
 #   DEPLOY_MIN (14.0)  WORK_DIR (./.sim)  IDB (idb on PATH)
 #   BACKUP_ZIP (--backup)  APPEARANCE (light|dark, --dark/--light)  GLASS (0|1, --glass)
+#   IPAD (0|1, --ipad — picks "iPad Pro 11-inch (M4)" + SIM_NAME "Apollo-Sim-iPad" unless overridden)
 #
 set -euo pipefail
 cd "$(dirname "$0")/.."   # repo root
@@ -48,6 +50,7 @@ APP_GROUP_SUITE="group.com.christianselig.apollo"   # tweak hardcodes this regar
 BACKUP_ZIP="${BACKUP_ZIP:-}"
 APPEARANCE="${APPEARANCE:-}"
 GLASS="${GLASS:-0}"
+IPAD="${IPAD:-0}"
 
 DO_BUILD=1; FRESH_APP=0; DO_LOGS=0; DO_DRIVE=0
 while [[ $# -gt 0 ]]; do
@@ -60,6 +63,7 @@ while [[ $# -gt 0 ]]; do
         --light)      APPEARANCE=light ;;
         --glass)      GLASS=1 ;;
         --no-glass)   GLASS=0 ;;
+        --ipad)       IPAD=1 ;;
         --backup)     BACKUP_ZIP="${2:-}"; shift ;;
         --backup=*)   BACKUP_ZIP="${1#*=}" ;;
         -h|--help)    grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
@@ -67,6 +71,15 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
+
+# --ipad: switch to an iPad device type and a separate cached simulator (so it
+# doesn't reuse/redefine the iPhone "Apollo-Sim" device). Explicit SIM_NAME /
+# SIM_DEVICE_TYPE overrides (still set to their iPhone defaults here) win.
+if [[ "$IPAD" == 1 ]]; then
+    [[ "$SIM_DEVICE_TYPE" == "iPhone 16 Pro" ]] && SIM_DEVICE_TYPE="iPad Pro 11-inch (M4)"
+    [[ "$SIM_NAME" == "Apollo-Sim" ]] && SIM_NAME="Apollo-Sim-iPad"
+fi
+
 # Convention: if no backup was named, auto-load ./.sim/backup.zip when present, so
 # agents/devs can drop a settings backup there once and have it preloaded on every
 # run. (./.sim/ is gitignored; a backup zip carries live credentials — never commit
