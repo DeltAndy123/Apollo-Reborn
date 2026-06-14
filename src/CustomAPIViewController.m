@@ -661,7 +661,7 @@ typedef NS_ENUM(NSInteger, Tag) {
     switch (section) {
         case SectionBackupRestore: return 4;
         case SectionAPIKeys: return 10; // 7 text fields + Can't sign in? + API key setup guide + Copy Widget Setup Code
-        case SectionGeneral: return sShowDeletedComments ? 11 : 10;
+        case SectionGeneral: return (sShowDeletedComments ? 11 : 10) + ((ApolloIsIPad() && IsLiquidGlass()) ? 1 : 0);
         case SectionMedia: return 13 + (sEnableInlineImages ? 0 : -kApolloMediaInlineDependentRows);
         case SectionSubreddits: return sSubredditListEnhancements ? 8 : 7;
         case SectionNotificationBackend: return 3; // URL + Registration Token + Test Connection
@@ -986,6 +986,14 @@ typedef NS_ENUM(NSInteger, Tag) {
 
 - (UITableViewCell *)generalCellForRow:(NSInteger)row tableView:(UITableView *)tableView {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSInteger rowsBeforeIPad = sShowDeletedComments ? 11 : 10;
+    if (ApolloIsIPad() && IsLiquidGlass() && row == rowsBeforeIPad) {
+        return [self switchCellWithIdentifier:@"Cell_Gen_IPadTwoPane"
+                                        label:@"Two-Pane Layout (Experimental)"
+                                       detail:@"Show the post list and post details side-by-side. Requires the Liquid Glass icon pack. Restart Apollo to apply. Still has a number of UI bugs -- enable at your own risk."
+                                           on:[defaults boolForKey:UDKeyIPadTwoPaneLayout]
+                                       action:@selector(iPadTwoPaneLayoutSwitchToggled:)];
+    }
     NSInteger effectiveRow = (!sShowDeletedComments && row >= 4) ? row + 1 : row;
     switch (effectiveRow) {
         case 0:
@@ -1989,6 +1997,11 @@ typedef NS_ENUM(NSInteger, Tag) {
 
 - (void)steamAppSwitchToggled:(UISwitch *)sender {
     [[NSUserDefaults standardUserDefaults] setBool:sender.isOn forKey:UDKeyOpenLinksInSteamApp];
+}
+
+- (void)iPadTwoPaneLayoutSwitchToggled:(UISwitch *)sender {
+    sIPadTwoPaneLayout = sender.isOn;
+    [[NSUserDefaults standardUserDefaults] setBool:sIPadTwoPaneLayout forKey:UDKeyIPadTwoPaneLayout];
 }
 
 - (void)collapsePinnedCommentsSwitchToggled:(UISwitch *)sender {

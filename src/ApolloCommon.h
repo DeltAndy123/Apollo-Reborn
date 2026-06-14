@@ -11,8 +11,28 @@
 
 __BEGIN_DECLS
 os_log_t ApolloFixLog(void);
+// YES on iPad idiom (iPhone/iPod returns NO).
+BOOL ApolloIsIPad(void);
 NSString *ApolloCollectLogs(void);
 BOOL IsLiquidGlass(void);
+
+// On iPad with the two-pane layout (ApolloiPadSplit.xm), a browsing tab's view
+// controller is a UISplitViewController, not the ApolloNavigationController
+// directly. Returns the primary column's nav controller in that case, the
+// view controller itself if it's already a nav controller, or nil otherwise.
+// On iPhone (and when the feature is off) this is just an isKindOfClass check.
+UINavigationController *ApolloNavControllerForTab(UIViewController *tabVC);
+
+// If `vc` is a UISplitViewController (an iPad two-pane tab), returns the
+// column the user is most likely looking at: the secondary/detail column if
+// it's showing real content, the compact column if collapsed, else the
+// primary column. Returns `vc` unchanged if it isn't a split view controller.
+UIViewController *ApolloActiveColumnViewController(UIViewController *vc);
+
+// True if `vc` is the iPad two-pane layout's "Select a post..."/"Select a
+// setting" placeholder shown in an empty detail pane (ApolloiPadSplit.xm).
+// Implemented there since the placeholder class is private to that file.
+BOOL ApolloIsIPadSplitPlaceholderViewController(UIViewController *vc);
 NSURL *ApolloURLByConvertingResolvedURLToApolloScheme(NSURL *url);
 BOOL ApolloRouteResolvedURLViaApolloScheme(NSURL *resolvedURL);
 void ApolloFlushReadPostIDsToDefaults(void);

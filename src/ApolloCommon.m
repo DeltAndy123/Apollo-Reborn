@@ -82,6 +82,10 @@ static uint32_t GetLinkedSDKVersion(void) {
     return 0;
 }
 
+BOOL ApolloIsIPad(void) {
+    return UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad;
+}
+
 // Check if Liquid Glass is active by checking if the app binary was linked against iOS 26+ SDK
 BOOL IsLiquidGlass(void) {
     static BOOL checked = NO;
@@ -107,6 +111,50 @@ BOOL IsLiquidGlass(void) {
     }
 
     return available;
+}
+
+#pragma mark - iPad split-view awareness
+//
+// On iPad (ApolloiPadSplit.xm), each browsing tab's root view controller is a
+// UISplitViewController wrapping the original ApolloNavigationController as
+// its primary column, instead of being the nav controller directly. Code that
+// walks tabBarController.viewControllers / selectedViewController assuming a
+// UINavigationController needs to unwrap that. On iPhone (and on iPad when the
+// feature is off) tabs are still plain nav controllers, so these are no-ops.
+
+UINavigationController *ApolloNavControllerForTab(UIViewController *tabVC) {
+    if ([tabVC isKindOfClass:[UINavigationController class]]) {
+        return (UINavigationController *)tabVC;
+    }
+    if ([tabVC isKindOfClass:[UISplitViewController class]]) {
+        UIViewController *primary = [(UISplitViewController *)tabVC viewControllerForColumn:UISplitViewControllerColumnPrimary];
+        if ([primary isKindOfClass:[UINavigationController class]]) {
+            return (UINavigationController *)primary;
+        }
+    }
+    return nil;
+}
+
+UIViewController *ApolloActiveColumnViewController(UIViewController *vc) {
+    if (![vc isKindOfClass:[UISplitViewController class]]) return vc;
+    UISplitViewController *split = (UISplitViewController *)vc;
+
+    if (split.isCollapsed) {
+        UIViewController *compact = [split viewControllerForColumn:UISplitViewControllerColumnCompact];
+        return compact ?: vc;
+    }
+
+    UIViewController *secondary = [split viewControllerForColumn:UISplitViewControllerColumnSecondary];
+    UIViewController *primary = [split viewControllerForColumn:UISplitViewControllerColumnPrimary];
+
+    UIViewController *secondaryTop = secondary;
+    if ([secondary isKindOfClass:[UINavigationController class]]) {
+        secondaryTop = ((UINavigationController *)secondary).topViewController;
+    }
+    if (secondaryTop && !ApolloIsIPadSplitPlaceholderViewController(secondaryTop)) {
+        return secondary ?: (primary ?: vc);
+    }
+    return primary ?: vc;
 }
 
 // Route a URL through Apollo's own URL handler, bypassing iOS URL dispatch.

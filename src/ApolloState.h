@@ -28,6 +28,8 @@ extern BOOL sShowUserAvatars;
 extern BOOL sUseProfileAvatarTabIcon;
 extern BOOL sShowSubredditHeaders;
 extern BOOL sAutoHideTabBarShowOnIdle;
+// iPad two-pane (feed | post detail) split layout. See ApolloiPadSplit.xm.
+extern BOOL sIPadTwoPaneLayout;
 extern BOOL sModernSubredditDividers;
 // Master toggle for subreddit list enhancements (see UDKeySubredditListEnhancements).
 extern BOOL sSubredditListEnhancements;

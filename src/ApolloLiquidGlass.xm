@@ -287,8 +287,10 @@ static void OpenAccountManager(void) {
     UIViewController *profileVC = nil;
     if (tabBarController) {
         for (UIViewController *vc in tabBarController.viewControllers) {
-            if ([vc isKindOfClass:[UINavigationController class]]) {
-                UINavigationController *navController = (UINavigationController *)vc;
+            // On iPad with the two-pane layout, `vc` is a UISplitViewController
+            // wrapping the tab's nav controller as its primary column.
+            UINavigationController *navController = ApolloNavControllerForTab(vc);
+            if (navController) {
                 // Search through the entire navigation stack, not just topViewController
                 for (UIViewController *stackVC in navController.viewControllers) {
                     if ([stackVC isKindOfClass:profileVCClass]) {

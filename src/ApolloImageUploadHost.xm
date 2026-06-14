@@ -181,6 +181,12 @@ static UIViewController *ApolloRedditVisibleControllerFromController(UIViewContr
         UIViewController *selected = ((UITabBarController *)current).selectedViewController;
         if (selected) return ApolloRedditVisibleControllerFromController(selected);
     }
+    // On iPad with the two-pane layout, `current` may be a UISplitViewController
+    // wrapping a tab's primary/secondary nav controllers.
+    if ([current isKindOfClass:[UISplitViewController class]]) {
+        UIViewController *active = ApolloActiveColumnViewController(current);
+        if (active && active != current) return ApolloRedditVisibleControllerFromController(active);
+    }
     return current;
 }
 

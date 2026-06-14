@@ -1207,6 +1207,7 @@ static void initializeRandomSources() {
                                     UDKeyUseProfileAvatarTabIcon: @NO,
                                     UDKeyShowSubredditHeaders: @NO,
                                     UDKeyAutoHideTabBarShowOnIdle: @NO,
+                                    UDKeyIPadTwoPaneLayout: @NO,
                                     UDKeyEnableBulkTranslation: @NO,
                                     UDKeyAutoTranslateOnAppear: @YES,
                                     UDKeyTranslatePostTitles: @NO,
@@ -1280,6 +1281,7 @@ static void initializeRandomSources() {
     sUseProfileAvatarTabIcon = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyUseProfileAvatarTabIcon];
     sShowSubredditHeaders = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyShowSubredditHeaders];
     sAutoHideTabBarShowOnIdle = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyAutoHideTabBarShowOnIdle];
+    sIPadTwoPaneLayout = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyIPadTwoPaneLayout];
     sModernSubredditDividers = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyModernSubredditDividers];
     sSubredditListEnhancements = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeySubredditListEnhancements];
     sEnableFlairColors = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyEnableFlairColors];
@@ -1459,7 +1461,11 @@ static void initializeRandomSources() {
             UITabBarController *tabBarController = (UITabBarController *)mainWindow.rootViewController;
             // Navigate to Settings tab
             tabBarController.selectedViewController = [tabBarController.viewControllers lastObject];
-            UINavigationController *settingsNavController = (UINavigationController *) tabBarController.selectedViewController;
+            // On iPad with the two-pane layout, this tab is a UISplitViewController
+            // wrapping the settings nav as its primary column -- unwrap it so this
+            // doesn't crash on the UINavigationController cast.
+            UINavigationController *settingsNavController = ApolloNavControllerForTab(tabBarController.selectedViewController);
+            if (!settingsNavController) return;
 
             // Push Custom API directly
             CustomAPIViewController *vc = [[CustomAPIViewController alloc] initWithStyle:UITableViewStyleInsetGrouped];

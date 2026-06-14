@@ -44,6 +44,10 @@ static NSString *const UDKeyShowUserAvatars = @"ShowUserAvatars";
 static NSString *const UDKeyUseProfileAvatarTabIcon = @"UseProfileAvatarTabIcon";
 static NSString *const UDKeyShowSubredditHeaders = @"ShowSubredditHeaders";
 static NSString *const UDKeyAutoHideTabBarShowOnIdle = @"AutoHideTabBarShowOnIdle";
+// iPad: show the post feed and the post/comments detail side-by-side in a
+// two-pane split layout instead of Apollo's native single-column phone
+// layout stretched to full width. iPad idiom only; takes effect on relaunch.
+static NSString *const UDKeyIPadTwoPaneLayout = @"IPadTwoPaneLayout";
 // Render image URLs (i.redd.it, preview.redd.it, i.imgur.com, generic .png/.jpg/.jpeg/.webp)
 // inline within post selftext and comments instead of leaving them as plain text links.
 static NSString *const UDKeyEnableInlineImages = @"EnableInlineImages";

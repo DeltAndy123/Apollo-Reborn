@@ -89,11 +89,15 @@ static BOOL ApolloQuickActionsOpenHomeFeed(id tabBarController) {
     }
 
     UIViewController *selected = [(UITabBarController *)tabBarController selectedViewController];
-    UINavigationController *nav = nil;
-    if ([selected isKindOfClass:UINavigationController.class]) {
-        nav = (UINavigationController *)selected;
-    } else if ([selected.navigationController isKindOfClass:UINavigationController.class]) {
-        nav = selected.navigationController;
+    // On iPad with the two-pane layout, `selected` is a UISplitViewController
+    // wrapping the feed nav as its primary column.
+    UINavigationController *nav = ApolloNavControllerForTab(selected);
+    if (!nav) {
+        if ([selected isKindOfClass:UINavigationController.class]) {
+            nav = (UINavigationController *)selected;
+        } else if ([selected.navigationController isKindOfClass:UINavigationController.class]) {
+            nav = selected.navigationController;
+        }
     }
     if (!nav) {
         ApolloLog(@"[QuickActions] Home: no navigation controller for selected tab %@", selected);
