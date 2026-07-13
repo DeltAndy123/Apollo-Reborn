@@ -3493,6 +3493,8 @@ static BOOL ApolloDefaultsKeyChangesActiveAccount(NSString *key) {
                                     UDKeyEnableTapToSummarize: @NO,
                                     UDKeyEnableAIAutoExpandSummaries: @NO,
                                     UDKeyAISummaryProvider: @"apple",
+                                    UDKeyEnableDevvitEmbeds: @NO,
+                                    UDKeyDevvitEmbedsAutoLoad: @YES,
                                     UDKeyPictureInPictureEnabled: @NO,
                                     UDKeyPictureInPictureActivation: @(ApolloPiPActivationModeUnmutedOnly),
                                     UDKeyPictureInPictureStartPosition: @(ApolloPiPStartPositionTopRight),
@@ -3573,6 +3575,8 @@ static BOOL ApolloDefaultsKeyChangesActiveAccount(NSString *key) {
     }
     sEnableTapToSummarize = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyEnableTapToSummarize];
     sEnableAIAutoExpandSummaries = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyEnableAIAutoExpandSummaries];
+    sEnableDevvitEmbeds = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyEnableDevvitEmbeds];
+    sDevvitEmbedsAutoLoad = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyDevvitEmbedsAutoLoad];
     // "Tap to Summarize" and "Open Summaries Automatically" are mutually exclusive in
     // settings, but an interim build let both be enabled independently. Reconcile a
     // leftover both-on state once at launch (tap wins, matching the runtime gate),

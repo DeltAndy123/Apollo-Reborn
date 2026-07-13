@@ -280,6 +280,19 @@ extern NSInteger sAIPostWordThreshold;              // 50...300, step 50
 extern ApolloAISummaryDetail sAIPostSummaryDetail;  // post / link / both
 extern ApolloAISummaryDetail sAICommentSummaryDetail;
 
+// Devvit (Reddit interactive post) inline embeds. Off by default — depends on
+// reverse-engineered, unstable Reddit-internal markup (the <devvit2-surface>
+// bridge-context handoff), so it's opt-in rather than on-by-default like most
+// other tweak features. When on, a post whose selftext is Reddit's "not
+// supported on old Reddit" placeholder gets its body replaced with the live
+// interactive embed instead, in the comments header only (not feed cells).
+// See ApolloDevvitEmbed.xm.
+extern BOOL sEnableDevvitEmbeds;
+// Sub-toggle (only consulted while sEnableDevvitEmbeds is on). Default YES:
+// start loading the embed as soon as the post opens. When NO, show a "View
+// Interactive Post" tap target in the body's place first and only load on tap.
+extern BOOL sDevvitEmbedsAutoLoad;
+
 // Horizontal alignment for inline media containers narrower than the row width
 // (tall portrait images, height-capped images). Has no effect on full-width media.
 typedef NS_ENUM(NSInteger, ApolloInlineImageAlignment) {

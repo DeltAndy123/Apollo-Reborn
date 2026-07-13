@@ -332,6 +332,14 @@ static NSString *const UDKeyCustomAIAPIKey    = @"CustomAIAPIKey";
 static NSString *const UDKeyCustomAIModel     = @"CustomAIModel";
 static NSString *const UDKeyCustomAIBaseURL   = @"CustomAIBaseURL"; // OpenAI-compatible base URL, e.g. https://api.example.com/v1
 
+// Devvit inline embeds (comments header only). Off by default. See
+// ApolloDevvitEmbed.xm / ApolloState.h.
+static NSString *const UDKeyEnableDevvitEmbeds = @"EnableDevvitEmbeds";
+// Sub-toggle, only meaningful while EnableDevvitEmbeds is on. Default ON:
+// start loading the embed as soon as the post opens rather than waiting for
+// a tap.
+static NSString *const UDKeyDevvitEmbedsAutoLoad = @"DevvitEmbedsAutoLoad";
+
 // Picture-in-Picture: floating in-app mini-player for comments-page videos.
 static NSString *const UDKeyPictureInPictureEnabled = @"PictureInPictureEnabled";       // master switch
 // 0 = All Videos, 1 = Unmuted Videos Only, 2 = All Videos & GIFs (ApolloPiPActivationMode).

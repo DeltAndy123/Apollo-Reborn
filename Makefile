@@ -45,6 +45,7 @@ ApolloReborn_FILES = \
     $(SRC_DIR)/ApolloAISummary.xm \
     $(SRC_DIR)/ApolloAICloudBridge.m \
     $(SRC_DIR)/ApolloAutoHideMetaFeeds.xm \
+    $(SRC_DIR)/ApolloDevvitEmbed.xm \
     $(SRC_DIR)/ApolloWhatsNew.xm \
     $(WHATS_NEW_GEN_M) \
     $(SRC_DIR)/Tweak.xm \
@@ -222,6 +223,7 @@ ApolloReborn_FILES = \
     $(SRC_DIR)/settings/ApolloAISettingsViewController.m \
     $(SRC_DIR)/settings/ApolloDeletedCommentsSettingsViewController.m \
     $(SRC_DIR)/settings/ApolloProfileLayoutViewController.m \
+    $(SRC_DIR)/settings/DevvitEmbedSettingsViewController.m \
     $(SRC_DIR)/settings/ApolloLinkPreviewSettingsViewController.m \
     $(SRC_DIR)/settings/InlineMediaSettingsViewController.m \
     $(SRC_DIR)/settings/InfoRowSettingsViewController.m \

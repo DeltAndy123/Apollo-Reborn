@@ -19,6 +19,7 @@
 #import "ApolloLinkPreviewCache.h"
 #import "ApolloLinkPreviewShapeMemory.h"
 #import "settings/ApolloDeletedCommentsSettingsViewController.h"
+#import "settings/DevvitEmbedSettingsViewController.h"
 #import "settings/ApolloLinkPreviewSettingsViewController.h"
 #import "settings/ApolloProfileLayoutViewController.h"
 #import "ApolloSubredditCustomBannerCache.h"
@@ -703,6 +704,11 @@ typedef NS_ENUM(NSInteger, Tag) {
     ApolloSettingsRow *linkPreviews = [self buildLinkPreviewsRow];
     ApolloSettingsRow *polls = [self buildPollsRow];
     ApolloSettingsRow *apolloAI = [self buildApolloAIRow];
+    ApolloSettingsRow *devvitEmbeds =
+        [self hubDisclosureRowWithID:@"feat.devvitEmbeds" title:@"Devvit Embeds" subtitle:nil
+                                push:^UIViewController * {
+            return [[DevvitEmbedSettingsViewController alloc] initWithStyle:UITableViewStyleInsetGrouped];
+        }];
 
     posts.iconSystemName        = @"newspaper.fill";              posts.iconTileColor        = [UIColor systemOrangeColor];
     comments.iconSystemName     = @"text.bubble.fill";            comments.iconTileColor     = [UIColor systemGreenColor];
@@ -713,11 +719,12 @@ typedef NS_ENUM(NSInteger, Tag) {
     linkPreviews.iconSystemName = @"link";                        linkPreviews.iconTileColor = [UIColor systemBlueColor];
     polls.iconSystemName        = @"chart.bar.fill";              polls.iconTileColor        = [UIColor systemYellowColor];
     apolloAI.iconSystemName     = @"sparkles";                    apolloAI.iconTileColor     = [UIColor systemIndigoColor];
+    devvitEmbeds.iconSystemName = @"cube.fill";                   devvitEmbeds.iconTileColor = [UIColor systemBrownColor];
 
     return [ApolloSettingsSection sectionWithTitle:@"Features"
                                             footer:@"Fine-tune posts, comments, media, subreddits, profiles and the interface."
                                               rows:@[ posts, comments, media, subreddits, profiles, interface_,
-                                                      linkPreviews, polls, apolloAI ]];
+                                                      linkPreviews, polls, apolloAI, devvitEmbeds ]];
 }
 
 - (ApolloSettingsSection *)buildAdvancedSection {
