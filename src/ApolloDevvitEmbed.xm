@@ -479,6 +479,20 @@ static void ApolloDevvitFetchEntrypoint(RDKLink *link, void (^completion)(NSDict
     // on its own.
     self.scrollView.minimumZoomScale = 1.0;
     self.scrollView.maximumZoomScale = 1.0;
+    // Many devvit apps have no real scrollable content at all (custom
+    // on-screen buttons instead of drag-to-scroll), so a drag over them
+    // should fall through to scroll the surrounding post, matching the real
+    // reddit.com website. UIScrollView.panGestureRecognizer.delegate can't be
+    // reassigned to achieve this — it's reserved for the scroll view's own
+    // internal bookkeeping and UIKit hard-crashes
+    // (-[UIScrollViewPanGestureRecognizer setDelegate:]) if you try. Turning
+    // off bounce instead: with nothing to scroll AND no rubber-banding, our
+    // own scroll view has nothing to do with the touch at all, which is what
+    // lets UIKit's ordinary nested-scroll-view handoff give it to Apollo's
+    // outer UITableView instead, with no custom delegate wiring needed.
+    self.scrollView.bounces = NO;
+    self.scrollView.alwaysBounceVertical = NO;
+    self.scrollView.alwaysBounceHorizontal = NO;
     // Reddit's own post cards are rounded; a sharp-cornered rectangle here
     // looked out of place. WKWebView is a plain UIView we fully own, so this
     // is just a normal CALayer mask — no CSS/iframe changes needed.
