@@ -13,7 +13,7 @@ typedef NS_ENUM(NSInteger, ApolloDevvitSettingsRow) {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"Devvit Embeds";
+    self.title = @"Interactive Posts";
 }
 
 #pragma mark - Helpers
@@ -46,10 +46,11 @@ typedef NS_ENUM(NSInteger, ApolloDevvitSettingsRow) {
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
-    return @"Replaces the \"not supported on old Reddit\" placeholder on Devvit "
-            "interactive posts with the live embed, inline under the title in the "
-            "comments view (not in the feed). Load Automatically starts loading as "
-            "soon as the post opens; when off, a tap target appears first instead.\n\n"
+    return @"Some posts (polls, games, and other interactive apps) show a "
+            "\"not supported\" placeholder link instead of rendering. This shows "
+            "a live version inline under the title in the comments view instead "
+            "(not in the feed). Load Automatically starts loading as soon as the "
+            "post opens; when off, a tap target appears first instead.\n\n"
             "This relies on undocumented Reddit internals and may occasionally stop "
             "working for a given post if Reddit changes them — the original "
             "placeholder and link are always shown as a fallback.";
@@ -58,7 +59,7 @@ typedef NS_ENUM(NSInteger, ApolloDevvitSettingsRow) {
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     switch (indexPath.row) {
         case ApolloDevvitSettingsRowEnabled:
-            return [self switchCellWithLabel:@"Enable Devvit Embeds"
+            return [self switchCellWithLabel:@"Show Interactive Post Embeds"
                                            on:sEnableDevvitEmbeds
                                       enabled:YES
                                        action:@selector(enabledSwitchToggled:)];

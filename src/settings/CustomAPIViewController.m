@@ -704,11 +704,6 @@ typedef NS_ENUM(NSInteger, Tag) {
     ApolloSettingsRow *linkPreviews = [self buildLinkPreviewsRow];
     ApolloSettingsRow *polls = [self buildPollsRow];
     ApolloSettingsRow *apolloAI = [self buildApolloAIRow];
-    ApolloSettingsRow *devvitEmbeds =
-        [self hubDisclosureRowWithID:@"feat.devvitEmbeds" title:@"Devvit Embeds" subtitle:nil
-                                push:^UIViewController * {
-            return [[DevvitEmbedSettingsViewController alloc] initWithStyle:UITableViewStyleInsetGrouped];
-        }];
 
     posts.iconSystemName        = @"newspaper.fill";              posts.iconTileColor        = [UIColor systemOrangeColor];
     comments.iconSystemName     = @"text.bubble.fill";            comments.iconTileColor     = [UIColor systemGreenColor];
@@ -719,12 +714,11 @@ typedef NS_ENUM(NSInteger, Tag) {
     linkPreviews.iconSystemName = @"link";                        linkPreviews.iconTileColor = [UIColor systemBlueColor];
     polls.iconSystemName        = @"chart.bar.fill";              polls.iconTileColor        = [UIColor systemYellowColor];
     apolloAI.iconSystemName     = @"sparkles";                    apolloAI.iconTileColor     = [UIColor systemIndigoColor];
-    devvitEmbeds.iconSystemName = @"cube.fill";                   devvitEmbeds.iconTileColor = [UIColor systemBrownColor];
 
     return [ApolloSettingsSection sectionWithTitle:@"Features"
                                             footer:@"Fine-tune posts, comments, media, subreddits, profiles and the interface."
                                               rows:@[ posts, comments, media, subreddits, profiles, interface_,
-                                                      linkPreviews, polls, apolloAI, devvitEmbeds ]];
+                                                      linkPreviews, polls, apolloAI ]];
 }
 
 - (ApolloSettingsSection *)buildAdvancedSection {
@@ -1324,6 +1318,26 @@ typedef NS_ENUM(NSInteger, Tag) {
     return [ApolloSettingsSection sectionWithTitle:@"Feed"
                                             footer:@"Small tweaks for the post list."
                                               rows:@[ textPostThumbnails, infoRow, blockAnnouncements ]];
+}
+
+// Posts & Feeds group screen — interactive-post embeds sub-section (Reddit's
+// Devvit apps — polls, games, community tools). The embed itself only ever
+// renders in the comments header (see ApolloDevvitEmbed.xm), but the setting
+// is about the post's content, not the comments feature set. "Devvit" is
+// Reddit's own developer-platform brand and isn't something general users
+// recognize, so the user-facing strings avoid it in favor of plain language.
+- (ApolloSettingsSection *)buildPostsDevvitSection {
+    ApolloSettingsRow *devvitEmbeds =
+        [self hubDisclosureRowWithID:@"posts.devvitEmbeds" title:@"Interactive Posts" subtitle:nil
+                                push:^UIViewController * {
+            return [[DevvitEmbedSettingsViewController alloc] initWithStyle:UITableViewStyleInsetGrouped];
+        }];
+    devvitEmbeds.iconSystemName = @"cube.fill";
+    devvitEmbeds.iconTileColor = [UIColor systemBrownColor];
+
+    return [ApolloSettingsSection sectionWithTitle:@"Interactive Posts"
+                                            footer:@"Reddit's interactive apps (polls, games, community tools) sometimes don't render and show a placeholder link instead. Show a live version of the app inline instead of the placeholder."
+                                              rows:@[ devvitEmbeds ]];
 }
 
 // Interface group screen (ApolloInterfaceSettingsViewController) — the
@@ -3670,7 +3684,8 @@ static NSInteger ApolloHeaderStylePickerValue(NSInteger index, BOOL blurAvailabl
 - (NSString *)apollo_screenTitle { return @"Posts & Feeds"; }
 - (NSArray<ApolloSettingsSection *> *)buildForm {
     return @[ [self buildPostsRecentlyReadSection],
-              [self buildPostsFeedSection] ];
+              [self buildPostsFeedSection],
+              [self buildPostsDevvitSection] ];
 }
 @end
 

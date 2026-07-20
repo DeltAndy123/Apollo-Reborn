@@ -210,6 +210,65 @@ static NSURL *ApolloDevvitAbsolutePermalinkURL(RDKLink *link) {
 // own post's id at compose time — a /comments/<own-id> link appearing at all
 // is already a strong, close-to-unique signal on its own, with or without a
 // length bound. Keep a generous sanity cap only against pathological input.
+//
+// One real false positive: a post whose body says something like "Best
+// viewed on old.reddit.com" with a link to its own old.reddit.com permalink
+// also contains a self-referential /comments/<own-id> link. Reddit's actual
+// auto-generated fallback always points old-Reddit clients AT new Reddit
+// (that's the whole point — Devvit apps can't render on old Reddit), so it
+// never links back to old.reddit.com. ApolloDevvitEnclosingHrefValue lets us
+// reject matches whose href is explicitly hosted on old.reddit.com without
+// a full HTML parse.
+static NSString *ApolloDevvitEnclosingHrefValue(NSString *html, NSRange matchRange) {
+    NSRange hrefRange = [html rangeOfString:@"href=\""
+                                     options:NSBackwardsSearch
+                                       range:NSMakeRange(0, matchRange.location)];
+    if (hrefRange.location == NSNotFound) return nil;
+
+    NSUInteger valueStart = NSMaxRange(hrefRange);
+    NSRange closeQuoteRange = [html rangeOfString:@"\""
+                                           options:0
+                                             range:NSMakeRange(valueStart, html.length - valueStart)];
+    // The nearest preceding href="..." only actually encloses our match if
+    // its closing quote falls after the match ends — otherwise that href
+    // belongs to some earlier, unrelated tag and the match isn't a link at
+    // all (e.g. a bare "/comments/<id>" mentioned in plain text).
+    if (closeQuoteRange.location == NSNotFound || closeQuoteRange.location < NSMaxRange(matchRange)) return nil;
+
+    return [html substringWithRange:NSMakeRange(valueStart, closeQuoteRange.location - valueStart)];
+}
+
+// A second, stronger positional signal: the real fallback's "Click here to
+// view the full post" link is always the very last content in the body —
+// nothing but closing tags trails its closing </a>. Confirmed against real
+// Devvit-placeholder bodies seen in the wild, though whether that positional
+// invariant survives non-English locales isn't confirmed — it's a DOM
+// structure claim, not a wording one, so it should hold even with translated
+// anchor text, but treat it as a second signal rather than the only one.
+// Requiring this AND the old.reddit.com host exclusion above makes an
+// accidental match from ordinary self-authored content (a "Best viewed on
+// old.reddit.com" note, a self-link left as the last line of an edit, etc.)
+// very unlikely.
+static BOOL ApolloDevvitIsTrailingLink(NSString *html, NSRange matchRange) {
+    NSRange closeTagRange = [html rangeOfString:@"</a>"
+                                         options:NSCaseInsensitiveSearch
+                                           range:NSMakeRange(NSMaxRange(matchRange), html.length - NSMaxRange(matchRange))];
+    if (closeTagRange.location == NSNotFound) return NO;
+
+    NSString *trailing = [html substringFromIndex:NSMaxRange(closeTagRange)];
+
+    static NSRegularExpression *tagRegex; static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        tagRegex = [NSRegularExpression regularExpressionWithPattern:@"<[^>]*>" options:0 error:nil];
+    });
+    NSString *withoutTags = [tagRegex stringByReplacingMatchesInString:trailing
+                                                                 options:0
+                                                                   range:NSMakeRange(0, trailing.length)
+                                                            withTemplate:@""];
+    NSString *trimmed = [withoutTags stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    return trimmed.length == 0;
+}
+
 static BOOL ApolloDevvitLinkIsPlaceholder(RDKLink *link) {
     if (!link) return NO;
     if (!link.selfPost) return NO;
@@ -218,11 +277,24 @@ static BOOL ApolloDevvitLinkIsPlaceholder(RDKLink *link) {
 
     NSString *identifier = ApolloDevvitPostIdentifier(link);
     if (identifier.length == 0) return NO;
+    if ([html rangeOfString:@"reddit.com" options:NSCaseInsensitiveSearch].location == NSNotFound) return NO;
 
     NSString *marker = [NSString stringWithFormat:@"/comments/%@", identifier];
-    if ([html rangeOfString:marker].location == NSNotFound) return NO;
-    if ([html rangeOfString:@"reddit.com" options:NSCaseInsensitiveSearch].location == NSNotFound) return NO;
-    return YES;
+    NSUInteger searchFrom = 0;
+    while (searchFrom < html.length) {
+        NSRange markerRange = [html rangeOfString:marker
+                                           options:0
+                                             range:NSMakeRange(searchFrom, html.length - searchFrom)];
+        if (markerRange.location == NSNotFound) return NO;
+
+        NSString *href = ApolloDevvitEnclosingHrefValue(html, markerRange);
+        BOOL hostedOnOldReddit = href && [href rangeOfString:@"old.reddit.com"
+                                                       options:NSCaseInsensitiveSearch].location != NSNotFound;
+        if (!hostedOnOldReddit && ApolloDevvitIsTrailingLink(html, markerRange)) return YES;
+
+        searchFrom = NSMaxRange(markerRange);
+    }
+    return NO;
 }
 
 #pragma mark - Result cache (embeddable yes/no only — entrypointUrl is never cached, its token is short-lived)
