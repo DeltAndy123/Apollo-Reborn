@@ -188,6 +188,9 @@ ApolloReborn_FILES = \
     $(SRC_DIR)/ApolloHiddenContentMenu.xm \
     $(SRC_DIR)/ApolloHideLinksBatchFix.xm \
     $(SRC_DIR)/ApolloSavedItemsDeduplicator.m \
+    $(SRC_DIR)/ApolloSavedCategoryAppearance.m \
+    $(SRC_DIR)/ApolloSavedCategoryStore.m \
+    $(SRC_DIR)/ApolloSavedCategoryIndicator.xm \
     $(SRC_DIR)/ApolloSavedCategories.xm \
     $(SRC_DIR)/ApolloSwiftIvarBridge.swift \
     $(SRC_DIR)/ApolloUserFlair.xm \
@@ -323,6 +326,7 @@ ApolloReborn_FILES = \
     $(SRC_DIR)/settings/ApolloLinkCompanionIconData.m \
     $(SRC_DIR)/settings/TranslationSettingsViewController.m \
     $(SRC_DIR)/settings/SavedCategoriesViewController.m \
+    $(SRC_DIR)/settings/ApolloSavedCategoryEditorViewController.m \
     $(SRC_DIR)/TagFiltersViewController.m \
     $(SRC_DIR)/ApolloPostFilterStore.m \
     $(SRC_DIR)/ApolloPostFilters.xm \
