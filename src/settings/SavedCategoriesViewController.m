@@ -1,6 +1,7 @@
 #import "settings/SavedCategoriesViewController.h"
-
-static NSString *const kGroupSuiteName = @"group.com.christianselig.apollo";
+#import "settings/ApolloSavedCategoryEditorViewController.h"
+#import "ApolloSavedCategoryAppearance.h"
+#import "ApolloSavedCategoryStore.h"
 
 @implementation SavedCategoriesViewController
 
@@ -16,8 +17,13 @@ static NSString *const kGroupSuiteName = @"group.com.christianselig.apollo";
 }
 
 - (void)reloadCategories {
-    _categoryNames = [self sortedCategoryNames];
+    _categoryNames = ApolloSavedCategoryNames();
     [self.tableView reloadSections:[NSIndexSet indexSetWithIndex:0] withRowAnimation:UITableViewRowAnimationAutomatic];
+}
+
+- (void)presentEditorForName:(NSString *)name {
+    ApolloSavedCategoryEditorViewController *editor = [[ApolloSavedCategoryEditorViewController alloc] initWithCategoryName:name];
+    [self.navigationController pushViewController:editor animated:YES];
 }
 
 #pragma mark - View Lifecycle
@@ -26,9 +32,18 @@ static NSString *const kGroupSuiteName = @"group.com.christianselig.apollo";
     [super viewDidLoad];
 
     self.title = @"Saved Categories";
-    _categoryNames = [self sortedCategoryNames];
+    _categoryNames = ApolloSavedCategoryNames();
 
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(addCategory)];
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    // Catches both a rename/delete made elsewhere and a return from the
+    // editor, which persists directly rather than calling back —
+    // reloadCategories also re-renders each row's name and swatch from
+    // current storage.
+    [self reloadCategories];
 }
 
 #pragma mark - UITableViewDataSource
@@ -50,16 +65,34 @@ static NSString *const kGroupSuiteName = @"group.com.christianselig.apollo";
         }
         cell.textLabel.text = @"No saved categories";
         cell.textLabel.textColor = [UIColor secondaryLabelColor];
+        cell.accessoryType = UITableViewCellAccessoryNone;
         return cell;
     }
 
     UITableViewCell *cell = [self.tableView dequeueReusableCellWithIdentifier:@"Cell_Cat_Item"];
     if (!cell) {
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"Cell_Cat_Item"];
-        cell.selectionStyle = UITableViewCellSelectionStyleNone;
+        cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     }
-    cell.textLabel.text = _categoryNames[indexPath.row];
+    NSString *name = _categoryNames[indexPath.row];
+    cell.textLabel.text = name;
     [self apollo_applyPrimaryTextColorToCell:cell];
+
+    // Leading swatch previews exactly what the corner indicator on saved
+    // items in this category will look like — same renderer, same asset.
+    // Categories with no custom appearance at all show no swatch (stock
+    // green, unchanged) rather than a placeholder, since there's nothing to
+    // preview; an icon-only category (default green + custom glyph) still
+    // gets one, since that combination is itself a custom appearance now.
+    ApolloSavedCategoryAppearance *appearance = ApolloSavedCategoryAppearanceFor(name);
+    if (appearance) {
+        UIColor *color = appearance.color ?: ApolloSavedCategoryDefaultColor(self.traitCollection);
+        cell.imageView.image = ApolloSavedCategoryTriangleImage([UIImage imageNamed:@"saved-triangle-small"],
+                                                                  color, appearance.symbolName, self.traitCollection);
+    } else {
+        cell.imageView.image = nil;
+    }
     return cell;
 }
 
@@ -67,25 +100,8 @@ static NSString *const kGroupSuiteName = @"group.com.christianselig.apollo";
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
-
     if (_categoryNames.count == 0) return;
-
-    NSString *name = _categoryNames[indexPath.row];
-    UITableViewCell *cell = [tableView cellForRowAtIndexPath:indexPath];
-
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:name message:nil preferredStyle:UIAlertControllerStyleActionSheet];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Rename" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-        [self renameCategoryWithName:name];
-    }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Delete" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
-        [self deleteCategoryWithName:name];
-    }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-    if (sheet.popoverPresentationController) {
-        sheet.popoverPresentationController.sourceView = cell;
-        sheet.popoverPresentationController.sourceRect = cell.bounds;
-    }
-    [self presentViewController:sheet animated:YES completion:nil];
+    [self presentEditorForName:_categoryNames[indexPath.row]];
 }
 
 - (UISwipeActionsConfiguration *)tableView:(UITableView *)tableView trailingSwipeActionsConfigurationForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -117,41 +133,6 @@ static NSString *const kGroupSuiteName = @"group.com.christianselig.apollo";
 
 #pragma mark - Saved Categories CRUD
 
-- (NSMutableDictionary *)readSavedCategoriesDatabase {
-    NSUserDefaults *groupDefaults = [[NSUserDefaults alloc] initWithSuiteName:kGroupSuiteName];
-    NSData *data = [groupDefaults dataForKey:@"SavedItemsCategoriesDatabase"];
-    if (!data) return nil;
-
-    NSError *error = nil;
-    id json = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:&error];
-    if (error || ![json isKindOfClass:[NSDictionary class]]) return nil;
-
-    return [json mutableCopy];
-}
-
-- (void)writeSavedCategoriesDatabase:(NSDictionary *)database {
-    NSError *error = nil;
-    NSData *data = [NSJSONSerialization dataWithJSONObject:database options:0 error:&error];
-    if (error || !data) return;
-
-    NSUserDefaults *groupDefaults = [[NSUserDefaults alloc] initWithSuiteName:kGroupSuiteName];
-    [groupDefaults setObject:data forKey:@"SavedItemsCategoriesDatabase"];
-    [groupDefaults synchronize];
-}
-
-- (NSArray<NSString *> *)sortedCategoryNames {
-    NSDictionary *db = [self readSavedCategoriesDatabase];
-    NSDictionary *categories = db[@"categories"];
-    if (![categories isKindOfClass:[NSDictionary class]]) return @[];
-    return [[categories allKeys] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
-}
-
-- (BOOL)isValidCategoryName:(NSString *)name {
-    if (!name) return NO;
-    NSString *trimmed = [name stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-    return trimmed.length >= 3;
-}
-
 - (void)addCategory {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"New Saved Category"
         message:nil
@@ -164,41 +145,24 @@ static NSString *const kGroupSuiteName = @"group.com.christianselig.apollo";
 
     UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil];
     UIAlertAction *addAction = [UIAlertAction actionWithTitle:@"Add" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-        NSString *name = [alert.textFields.firstObject.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-
-        NSMutableDictionary *db = [self readSavedCategoriesDatabase];
-        if (!db) {
-            db = [@{@"categories": [NSMutableDictionary dictionary]} mutableCopy];
+        NSString *name = alert.textFields.firstObject.text;
+        NSString *error = nil;
+        if (!ApolloSavedCategoryAdd(name, &error)) {
+            [self showAlertWithTitle:@"Name Already Used" message:error];
+            return;
         }
-        NSMutableDictionary *categories = db[@"categories"];
-        if (!categories) {
-            categories = [NSMutableDictionary dictionary];
-            db[@"categories"] = categories;
-        }
-
-        // Check for duplicate (case-insensitive)
-        for (NSString *existing in categories.allKeys) {
-            if ([existing caseInsensitiveCompare:name] == NSOrderedSame) {
-                [self showAlertWithTitle:@"Name Already Used" message:@"A saved category already exists with that name, please choose a unique name."];
-                return;
-            }
-        }
-
-        categories[name] = @[];
-        [self writeSavedCategoriesDatabase:db];
         [self reloadCategories];
     }];
 
     // Disable "Add" until input is non-empty
     addAction.enabled = NO;
     __weak UIAlertController *weakAlert = alert;
-    __weak typeof(self) weakSelf = self;
     [[NSNotificationCenter defaultCenter] addObserverForName:UITextFieldTextDidChangeNotification
         object:alert.textFields.firstObject
         queue:[NSOperationQueue mainQueue]
         usingBlock:^(NSNotification *note) {
             NSString *text = weakAlert.textFields.firstObject.text;
-            addAction.enabled = [weakSelf isValidCategoryName:text];
+            addAction.enabled = ApolloSavedCategoryNameIsValid(text);
         }];
 
     [alert addAction:cancelAction];
@@ -219,40 +183,24 @@ static NSString *const kGroupSuiteName = @"group.com.christianselig.apollo";
 
     UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil];
     UIAlertAction *renameAction = [UIAlertAction actionWithTitle:@"Rename" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-        NSString *newName = [alert.textFields.firstObject.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-        if (newName.length == 0 || [newName isEqualToString:oldName]) return;
-
-        NSMutableDictionary *db = [self readSavedCategoriesDatabase];
-        if (!db) return;
-        NSMutableDictionary *categories = db[@"categories"];
-        if (!categories) return;
-
-        // Check for duplicate (case-insensitive), excluding the old name being renamed
-        for (NSString *existing in categories.allKeys) {
-            if ([existing caseInsensitiveCompare:oldName] == NSOrderedSame) continue;
-            if ([existing caseInsensitiveCompare:newName] == NSOrderedSame) {
-                [self showAlertWithTitle:@"Name Already Used" message:@"A saved category already exists with that name, please choose a unique name."];
-                return;
-            }
+        NSString *newName = alert.textFields.firstObject.text;
+        NSString *error = nil;
+        if (!ApolloSavedCategoryRename(oldName, newName, &error)) {
+            [self showAlertWithTitle:@"Name Already Used" message:error];
+            return;
         }
-
-        id value = categories[oldName];
-        [categories removeObjectForKey:oldName];
-        categories[newName] = value ?: @[];
-        [self writeSavedCategoriesDatabase:db];
         [self reloadCategories];
     }];
 
     // Disable "Rename" until input is non-empty
-    renameAction.enabled = [self isValidCategoryName:oldName];
+    renameAction.enabled = ApolloSavedCategoryNameIsValid(oldName);
     __weak UIAlertController *weakAlert = alert;
-    __weak typeof(self) weakSelf = self;
     [[NSNotificationCenter defaultCenter] addObserverForName:UITextFieldTextDidChangeNotification
         object:alert.textFields.firstObject
         queue:[NSOperationQueue mainQueue]
         usingBlock:^(NSNotification *note) {
             NSString *text = weakAlert.textFields.firstObject.text;
-            renameAction.enabled = [weakSelf isValidCategoryName:text];
+            renameAction.enabled = ApolloSavedCategoryNameIsValid(text);
         }];
 
     [alert addAction:cancelAction];
@@ -267,13 +215,7 @@ static NSString *const kGroupSuiteName = @"group.com.christianselig.apollo";
 
     UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil];
     UIAlertAction *deleteAction = [UIAlertAction actionWithTitle:@"Delete" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
-        NSMutableDictionary *db = [self readSavedCategoriesDatabase];
-        if (!db) return;
-        NSMutableDictionary *categories = db[@"categories"];
-        if (!categories) return;
-
-        [categories removeObjectForKey:name];
-        [self writeSavedCategoriesDatabase:db];
+        ApolloSavedCategoryDelete(name);
         [self reloadCategories];
     }];
 
