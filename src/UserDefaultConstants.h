@@ -737,3 +737,11 @@ static NSString *const ApolloInlineMediaLayoutDidChangeNotification = @"ApolloIn
 // audience for the release this ships in. See the gating doc in
 // ApolloWhatsNew.xm.
 static NSString *const UDKeyLastSeenWhatsNewVersion = @"LastSeenWhatsNewVersion";
+
+// Per-category appearance for Saved Categories (color + SF Symbol), keyed by
+// category name: { "<name>": {"color": "RRGGBB", "symbol": "star.fill"} }.
+// Side-store — Apollo's own SavedItemsCategoriesDatabase (name -> [itemIDs] in
+// the group.com.christianselig.apollo suite) has no room for extra fields. Rides
+// standardUserDefaults so it's covered by Backup/Restore for free; per
+// settings/README.md, do NOT add it to ApolloBackupRestore.m's statics re-sync.
+static NSString *const UDKeySavedCategoryAppearance = @"SavedCategoryAppearance";
