@@ -23,6 +23,7 @@
 //
 //   "Open Links in"               → Open in App (browser picker mirror)
 //   "Open Videos in YouTube App"  → Open in App (YouTube switch mirror)
+//   "Open Tweets in"              → Open in App (tweet client picker mirror)
 //   "Hide Username on Tab Bar"    → Apollo Reborn → Interface → Tab Bar
 //   "Hide Bars on Scroll"         → Apollo Reborn → Interface → Tab Bar
 //   "Hide Subreddits Row"         → Apollo Reborn → Subreddits → Feed Shortcuts
@@ -121,9 +122,11 @@ static const void *kApolloInjSavedCategoriesKey = &kApolloInjSavedCategoriesKey;
     // Native rows relocated onto Reborn screens (see the header comment). The
     // mirrors read/write the same native keys, so hiding these is pure
     // deduplication — none of them is used as an injection anchor above.
+    // ("Open Tweets in" only exists natively when a tweet client is installed.)
     ApolloGeneralTableHideRows(^BOOL(UITableViewCell *cell) {
         return ApolloGeneralTableCellHasTitle(cell, @"Open Links in")
             || ApolloGeneralTableCellHasTitle(cell, @"Open Videos in YouTube App")
+            || ApolloGeneralTableCellHasTitle(cell, @"Open Tweets in")
             || ApolloGeneralTableCellHasTitle(cell, @"Hide Username on Tab Bar")
             || ApolloGeneralTableCellHasTitle(cell, @"Hide Bars on Scroll")
             || ApolloGeneralTableCellHasTitle(cell, @"Hide Subreddits Row")
