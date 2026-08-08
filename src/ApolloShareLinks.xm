@@ -349,7 +349,7 @@ static BOOL ApolloTryOpenInSteamApp(NSURL *url, void (^fallbackHandler)(void)) {
 }
 
 // ---------------------------------------------------------------------------
-// Generic "open this link in its dedicated app" support (GitHub / X / Bluesky).
+// Generic "open this link in its dedicated app" support (GitHub / Bluesky).
 // Each of these apps registers Universal Links for its web domain, so the same
 // mechanism Steam uses works uniformly: hand iOS the https URL with
 // UniversalLinksOnly:YES and it opens the app when installed (and the Universal
@@ -412,18 +412,6 @@ static BOOL ApolloIsTwitterHost(NSString *host) {
     return ApolloHostMatchesDomains(host, @[@"twitter.com", @"x.com"]);
 }
 
-// Is the user's global "Open Links in" browser preference set to the *system*
-// browser? Mirrors Apollo's native setting (key "OpenLinksIn", tokens
-// "in-app-safari" / "external-safari"); a missing value means the in-app default.
-static NSString *ApolloOpenLinksInToken(void) {
-    NSString *token = [[NSUserDefaults standardUserDefaults] stringForKey:UDKeyNativeOpenLinksIn];
-    return token.length > 0 ? token : @"in-app-safari";
-}
-
-static BOOL ApolloOpensLinksInSystemBrowser(void) {
-    return [ApolloOpenLinksInToken() isEqualToString:@"external-safari"];
-}
-
 // The shared key-window lookup (foreground-active scene first; iOS 14-safe),
 // provided it is visible; else the first visible window in any scene.
 static UIWindow *ApolloSharePresentationWindow(void) {
@@ -462,52 +450,28 @@ static void ApolloPresentInAppSafari(NSURL *url) {
     }
 }
 
-// X/Twitter links. Apollo routes these through its own "Open Tweets in" picker
-// (key OpenTwitterLinksIn) instead of the global browser setting. Reborn doesn't
-// hide that row, but it isn't in the sim crawl of Settings > General either
-// (ApolloSettingsSearchNativeIndex.h), so most users never see it and tweets got
-// stuck opening in the *system* browser even when the user picked In-App Safari.
-// Bring tweets in line with every other link: open the
-// X app when it's installed (Universal Links, matching Apollo's usual behavior),
-// and otherwise honor the global browser choice — In-App Safari here (the system
-// browser case is handled by letting the original handler run). Returns YES if we
-// handled the tap (caller must not call %orig).
-static BOOL ApolloTryOpenTwitterInApp(NSURL *url) {
-    if (![url isKindOfClass:[NSURL class]] || !ApolloIsTwitterHost(url.host)) return NO;
-
-    // User wants the system browser globally: Apollo's own external open already
-    // does the right thing (X app if installed, else system Safari) — leave it be.
-    if (ApolloOpensLinksInSystemBrowser()) return NO;
-
-    NSURLComponents *components = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
-    components.scheme = @"https";
-    NSURL *httpsURL = components.URL ?: url;
-
-    ApolloLog(@"[ShareLinks] Routing X/Twitter link, trying X app first: %@", httpsURL);
-    [[UIApplication sharedApplication] openURL:httpsURL
-                                       options:@{UIApplicationOpenURLOptionUniversalLinksOnly: @YES}
-                             completionHandler:^(BOOL openedInXApp) {
-        if (openedInXApp) {
-            ApolloLog(@"[ShareLinks] Opened X/Twitter link in the X app: %@", httpsURL);
-            return;
-        }
-        ApolloLog(@"[ShareLinks] X app unavailable, using in-app Safari: %@", httpsURL);
-        dispatch_async(dispatch_get_main_queue(), ^{ ApolloPresentInAppSafari(httpsURL); });
-    }];
-    return YES;
+// Should a Nitter page open in In-App Safari? Follows "Open Tweets in"
+// (Apollo's OpenTwitterLinksIn; tokens in UserDefaultConstants.h), since a
+// Nitter page is still a tweet: only "Safari" (externalBrowser) sends it
+// outside Apollo. In-App Safari is Apollo's own default for a missing or
+// unknown token, and it's also used when a Twitter client is picked, because
+// Nitter has no app and the in-app browser gets through the instances' bot
+// checks.
+static BOOL ApolloNitterOpensInAppSafari(void) {
+    NSString *tweetToken = [[NSUserDefaults standardUserDefaults] stringForKey:UDKeyNativeOpenTwitterLinksIn];
+    return ![tweetToken isEqualToString:@"externalBrowser"];
 }
 
 // "Open via Nitter" (Settings > Open in App): open X/Twitter page links on the
 // Nitter instance the user picked, so posts can be read without an X account.
 // Off unless the toggle is on AND an instance is saved; links Nitter can't serve
 // (X home, DMs, settings, most /i/ routes, non-web subdomains) return NO and keep
-// the normal X routing. Nitter has no app, so the rewritten link goes straight to
-// the user's browser choice: In-App Safari when that's selected (SFSafariViewController
-// gets through the instances' bot checks), otherwise the system default browser.
-// Must run before ApolloTryOpenTwitterInApp: an explicit Nitter choice beats the
-// X app. Returns YES when it opened the link. That also covers the link-button
-// hooks, whose %orig re-reads the original URL from the node, so the rewrite has
-// to be opened here rather than passed back to Apollo.
+// the normal X routing. Nitter has no app, so the rewritten link opens in a
+// browser: the system default browser when "Open Tweets in" is set to Safari,
+// otherwise In-App Safari (see ApolloNitterOpensInAppSafari). An explicit Nitter choice beats the
+// "Open Tweets in" client. Returns YES when it opened the link. That also covers
+// the link-button hooks, whose %orig re-reads the original URL from the node, so
+// the rewrite has to be opened here rather than passed back to Apollo.
 static BOOL ApolloTryOpenTwitterViaNitter(NSURL *url) {
     if (![url isKindOfClass:[NSURL class]]) return NO;
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
@@ -526,7 +490,7 @@ static BOOL ApolloTryOpenTwitterViaNitter(NSURL *url) {
     }
 
     ApolloLog(@"[ShareLinks] Rewrote X link for Nitter: %@ -> %@", url, nitterURL);
-    if ([ApolloOpenLinksInToken() isEqualToString:@"in-app-safari"]) {
+    if (ApolloNitterOpensInAppSafari()) {
         ApolloPresentInAppSafari(nitterURL);
     } else {
         [[UIApplication sharedApplication] openURL:nitterURL options:@{} completionHandler:nil];
@@ -548,10 +512,15 @@ static BOOL ApolloTryOpenLinkPostThumbnailViaNitter(RDKLink *link) {
 }
 
 // Unified entry point used by every tappable-link handler: route the link to its
-// dedicated app / preferred browser. Steam keeps its own helper (it normalizes the
-// host first); GitHub / Bluesky use the generic Universal Links opener; X/Twitter
-// goes to Nitter when the user chose that, else to its own helper (see
-// ApolloTryOpenTwitterInApp above). Keys here must match UserDefaultConstants.h.
+// dedicated app. Steam keeps its own helper (it normalizes the host first);
+// GitHub / Bluesky use the generic Universal Links opener.
+//
+// X/Twitter only goes to Nitter, when the user opted in and Nitter can serve the
+// page. Everything else is left to %orig: Apollo's "Open Tweets in" router
+// (OpenTwitterLinksIn) is the only path to Tweetbot / Twitterrific / Spring /
+// Aviary, which open by custom URL scheme, not Universal Links.
+//
+// Keys here must match UserDefaultConstants.h.
 static BOOL ApolloTryOpenInDedicatedApp(NSURL *url, void (^fallbackHandler)(void)) {
     if (![url isKindOfClass:[NSURL class]]) return NO;
     if (ApolloTryOpenInSteamApp(url, fallbackHandler)) return YES;
@@ -560,8 +529,7 @@ static BOOL ApolloTryOpenInDedicatedApp(NSURL *url, void (^fallbackHandler)(void
         ApolloTryOpenViaUniversalLink(url, @"GitHub", @"OpenLinksInGitHubApp", fallbackHandler)) return YES;
     if (ApolloIsBlueskyHost(host) &&
         ApolloTryOpenViaUniversalLink(url, @"Bluesky", @"OpenLinksInBlueskyApp", fallbackHandler)) return YES;
-    if (ApolloIsTwitterHost(host) &&
-        (ApolloTryOpenTwitterViaNitter(url) || ApolloTryOpenTwitterInApp(url))) return YES;
+    if (ApolloIsTwitterHost(host) && ApolloTryOpenTwitterViaNitter(url)) return YES;
     return NO;
 }
 
