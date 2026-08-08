@@ -182,9 +182,18 @@ static NSString *const UDKeyOpenVideosInYouTubeApp = @"OpenVideosInYouTubeApp";
 //   in-app-safari (In-App Safari), external-safari (Safari), chrome, firefox,
 //   firefox-focus, edge, dolphin, brave, duckduckgo, icab
 // Reborn's "Open in App" screen mirrors this key (same gather-and-hide pattern
-// as UDKeyOpenVideosInYouTubeApp above; the token literal is also read in
-// ApolloShareLinks.xm's ApolloOpensLinksInSystemBrowser()).
+// as UDKeyOpenVideosInYouTubeApp above), and the tweets mirror below reuses its
+// labels to render its own "externalBrowser" option.
 static NSString *const UDKeyNativeOpenLinksIn = @"OpenLinksIn";
+// Apollo NATIVE key backing its "Open Tweets in" picker (String token).
+// Tokens (decoded from the Swift small strings in Apollo's switch):
+//   inAppSafari, externalBrowser, twitter, twitterrific, tweetbot, spring, aviary
+// Missing or unrecognized = inAppSafari. "externalBrowser" means "follow
+// UDKeyNativeOpenLinksIn", not Safari literally. Apollo hides its own row
+// unless one of the five clients is installed, and rewrites a token naming an
+// uninstalled client back to inAppSafari. Mirrored in
+// settings/ApolloOpenInAppViewController.m.
+static NSString *const UDKeyNativeOpenTwitterLinksIn = @"OpenTwitterLinksIn";
 // Apollo NATIVE key + change notification for its "Hide Username on Tab Bar"
 // switch. Apollo observes the notification (hideUsernameOnTabBarChangedWithNotification:)
 // and re-lays-out the profile tab live, so mirrors must post it after writing

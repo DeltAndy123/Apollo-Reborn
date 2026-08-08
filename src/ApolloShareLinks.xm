@@ -2,19 +2,9 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 
-#import <SafariServices/SafariServices.h>
-
 #import "ApolloCommon.h"
 #import "Tweak.h"
 #import "UIWindow+Apollo.h"
-
-// Apollo's own in-app browser — an SFSafariViewController subclass presented for
-// the "In-App Safari" browser option. Declared here only so we can message
-// -initWithURL:; the class itself is looked up at runtime (objc_getClass) so there
-// is no link-time dependency on the app binary.
-@interface _TtC6Apollo26ApolloSafariViewController : UIViewController
-- (instancetype)initWithURL:(NSURL *)url;
-@end
 
 // Regex for Reddit's opaque share links. These appear on every presentation
 // host (www/old/new/np/m/language subdomains), and profile links may use either
@@ -347,7 +337,7 @@ static BOOL ApolloTryOpenInSteamApp(NSURL *url, void (^fallbackHandler)(void)) {
 }
 
 // ---------------------------------------------------------------------------
-// Generic "open this link in its dedicated app" support (GitHub / X / Bluesky).
+// Generic "open this link in its dedicated app" support (GitHub / Bluesky).
 // Each of these apps registers Universal Links for its web domain, so the same
 // mechanism Steam uses works uniformly: hand iOS the https URL with
 // UniversalLinksOnly:YES and it opens the app when installed (and the Universal
@@ -406,18 +396,6 @@ static BOOL ApolloTryOpenViaUniversalLink(NSURL *url, NSString *serviceName, NSS
     return YES;
 }
 
-static BOOL ApolloIsTwitterHost(NSString *host) {
-    return ApolloHostMatchesDomains(host, @[@"twitter.com", @"x.com"]);
-}
-
-// Is the user's global "Open Links in" browser preference set to the *system*
-// browser? Mirrors Apollo's native setting (key "OpenLinksIn", tokens
-// "in-app-safari" / "external-safari"); a missing value means the in-app default.
-static BOOL ApolloOpensLinksInSystemBrowser(void) {
-    NSString *token = [[NSUserDefaults standardUserDefaults] stringForKey:@"OpenLinksIn"];
-    return [token isEqualToString:@"external-safari"];
-}
-
 // UIWindowScene.keyWindow is iOS 15-only, while the tweak still supports iOS
 // 14. Walk the scene windows through the shared compatibility helper and use
 // UIWindow.isKeyWindow, which is available at our deployment floor.
@@ -431,70 +409,15 @@ static UIWindow *ApolloSharePresentationWindow(void) {
     return fallback;
 }
 
-// Present `url` in Apollo's in-app browser (the same SFSafariViewController
-// subclass Apollo uses for "In-App Safari"), falling back to a plain external open
-// if it can't be presented so the link is never silently dropped. Main thread only.
-static void ApolloPresentInAppSafari(NSURL *url) {
-    if (![url isKindOfClass:[NSURL class]]) return;
-
-    UIViewController *presenter = [ApolloSharePresentationWindow() visibleViewController];
-
-    UIViewController *safariVC = nil;
-    Class apolloSafariClass = objc_getClass("_TtC6Apollo26ApolloSafariViewController");
-    if (apolloSafariClass) {
-        safariVC = [(_TtC6Apollo26ApolloSafariViewController *)[apolloSafariClass alloc] initWithURL:url];
-    }
-    if (!safariVC) {
-        safariVC = [[SFSafariViewController alloc] initWithURL:url];
-    }
-
-    if (safariVC && presenter) {
-        ApolloLog(@"[ShareLinks] Presenting X/Twitter link in in-app Safari: %@", url);
-        [presenter presentViewController:safariVC animated:YES completion:nil];
-    } else {
-        ApolloLog(@"[ShareLinks] In-app Safari unavailable, opening X/Twitter link externally: %@", url);
-        [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
-    }
-}
-
-// X/Twitter links. Apollo routes these through its own "Open Tweets in" picker
-// (key OpenTwitterLinksIn) instead of the global browser setting, and Reborn hides
-// that picker — leaving tweets stuck opening in the *system* browser even when the
-// user picked In-App Safari. Bring tweets in line with every other link: open the
-// X app when it's installed (Universal Links, matching Apollo's usual behavior),
-// and otherwise honor the global browser choice — In-App Safari here (the system
-// browser case is handled by letting the original handler run). Returns YES if we
-// handled the tap (caller must not call %orig).
-static BOOL ApolloTryOpenTwitterInApp(NSURL *url) {
-    if (![url isKindOfClass:[NSURL class]] || !ApolloIsTwitterHost(url.host)) return NO;
-
-    // User wants the system browser globally: Apollo's own external open already
-    // does the right thing (X app if installed, else system Safari) — leave it be.
-    if (ApolloOpensLinksInSystemBrowser()) return NO;
-
-    NSURLComponents *components = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
-    components.scheme = @"https";
-    NSURL *httpsURL = components.URL ?: url;
-
-    ApolloLog(@"[ShareLinks] Routing X/Twitter link, trying X app first: %@", httpsURL);
-    [[UIApplication sharedApplication] openURL:httpsURL
-                                       options:@{UIApplicationOpenURLOptionUniversalLinksOnly: @YES}
-                             completionHandler:^(BOOL openedInXApp) {
-        if (openedInXApp) {
-            ApolloLog(@"[ShareLinks] Opened X/Twitter link in the X app: %@", httpsURL);
-            return;
-        }
-        ApolloLog(@"[ShareLinks] X app unavailable, using in-app Safari: %@", httpsURL);
-        dispatch_async(dispatch_get_main_queue(), ^{ ApolloPresentInAppSafari(httpsURL); });
-    }];
-    return YES;
-}
-
 // Unified entry point used by every tappable-link handler: route the link to its
-// dedicated app / preferred browser. Steam keeps its own helper (it normalizes the
-// host first); GitHub / Bluesky use the generic Universal Links opener; X/Twitter
-// has its own helper (see ApolloTryOpenTwitterInApp above). Keys here must match
-// UserDefaultConstants.h.
+// dedicated app. Steam keeps its own helper (it normalizes the host first);
+// GitHub / Bluesky use the generic Universal Links opener.
+//
+// X/Twitter is deliberately left to %orig: Apollo's "Open Tweets in" router
+// (OpenTwitterLinksIn) is the only path to Tweetbot / Twitterrific / Spring /
+// Aviary, which open by custom URL scheme, not Universal Links.
+//
+// Keys here must match UserDefaultConstants.h.
 static BOOL ApolloTryOpenInDedicatedApp(NSURL *url, void (^fallbackHandler)(void)) {
     if (![url isKindOfClass:[NSURL class]]) return NO;
     if (ApolloTryOpenInSteamApp(url, fallbackHandler)) return YES;
@@ -503,7 +426,6 @@ static BOOL ApolloTryOpenInDedicatedApp(NSURL *url, void (^fallbackHandler)(void
         ApolloTryOpenViaUniversalLink(url, @"GitHub", @"OpenLinksInGitHubApp", fallbackHandler)) return YES;
     if (ApolloIsBlueskyHost(host) &&
         ApolloTryOpenViaUniversalLink(url, @"Bluesky", @"OpenLinksInBlueskyApp", fallbackHandler)) return YES;
-    if (ApolloIsTwitterHost(host) && ApolloTryOpenTwitterInApp(url)) return YES;
     return NO;
 }
 
