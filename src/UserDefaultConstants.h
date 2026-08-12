@@ -15,6 +15,11 @@ static NSString *const UDKeyRedirectURI = @"RedirectURI";
 static NSString *const UDKeyPerAccountCredentials = @"PerAccountAPICredentials";
 static NSString *const UDKeyUseCustomOAuthSignIn = @"UseCustomOAuthSignIn";
 static NSString *const UDKeyUserAgent = @"UserAgent";
+// Escape hatch for the browser identity that API-Key-Free (Web JSON) requests
+// present — see ApolloWebJSONBrowserUserAgent(). Separate from UDKeyUserAgent
+// on purpose: that one is the OAuth app's identity, and reusing it on
+// cookie-authenticated traffic is what breaks mature listings. Empty = default.
+static NSString *const UDKeyWebSessionUserAgent = @"WebSessionUserAgent";
 static NSString *const UDKeyBlockAnnouncements = @"DisableApollonouncements";
 static NSString *const UDKeyEnableFLEX = @"EnableFlexDebugging";
 // Local crash recording (src/crash/). Default ON: reports only ever live on

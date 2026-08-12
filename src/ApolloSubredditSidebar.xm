@@ -26,6 +26,7 @@
 #import <dlfcn.h>
 #import "ApolloCommon.h"
 #import "ApolloState.h"
+#import "ApolloWebJSON.h"
 
 // Section builders / keys here are wired up incrementally; tolerate not-yet-used
 // ones under the project's -Werror without per-symbol annotations.
@@ -65,7 +66,7 @@ static NSCache<NSString *, NSArray<NSNumber *> *> *ApolloSBWebStatsCache(void) {
     self.web = [[WKWebView alloc] initWithFrame:win.bounds configuration:[[WKWebViewConfiguration alloc] init]];
     self.web.navigationDelegate = self;
     self.web.alpha = 0.011; self.web.userInteractionEnabled = NO;
-    self.web.customUserAgent = @"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
+    self.web.customUserAgent = ApolloWebJSONBrowserUserAgent();
     [win insertSubview:self.web atIndex:0];
     [self.web loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"https://www.reddit.com/r/%@/", sub]]]];
     ApolloLog(@"[Sidebar][webstats] loading r/%@", sub);

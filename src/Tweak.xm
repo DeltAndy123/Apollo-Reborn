@@ -3527,6 +3527,7 @@ static BOOL ApolloDefaultsKeyChangesActiveAccount(NSString *key) {
     sImageChestAPIToken = (NSString *)[[[NSUserDefaults standardUserDefaults] objectForKey:UDKeyImageChestAPIToken] ?: @"" copy];
     sRedirectURI = (NSString *)[[[NSUserDefaults standardUserDefaults] objectForKey:UDKeyRedirectURI] ?: @"" copy];
     sUserAgent = (NSString *)[[[NSUserDefaults standardUserDefaults] objectForKey:UDKeyUserAgent] ?: @"" copy];
+    sWebSessionUserAgent = (NSString *)[[[NSUserDefaults standardUserDefaults] objectForKey:UDKeyWebSessionUserAgent] ?: @"" copy];
     sBlockAnnouncements = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyBlockAnnouncements];
     sShowDeletedComments = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyShowDeletedComments];
     sTapToRevealDeletedComments = [[NSUserDefaults standardUserDefaults] boolForKey:UDKeyTapToRevealDeletedComments];

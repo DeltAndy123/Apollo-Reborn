@@ -11,6 +11,7 @@
 #import "ApolloListLayoutSupport.h"
 #import "ApolloState.h"
 #import "ApolloThemeRuntime.h"
+#import "ApolloWebJSON.h"
 #import "ApolloWebSessionLoginViewController.h"
 #import "ApolloWebSessionStore.h"
 #import "UserDefaultConstants.h"
@@ -618,10 +619,6 @@ static void ApolloSeedModernMailboxCookies(NSString *cookieHeader,
     dispatch_group_notify(group, dispatch_get_main_queue(), completion ?: ^{});
 }
 
-static NSString *ApolloModernMailboxUserAgent(void) {
-    return @"Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1";
-}
-
 static void *ApolloDirectChatWebViewURLContext = &ApolloDirectChatWebViewURLContext;
 
 typedef NS_ENUM(NSUInteger, ApolloModernMailboxKind) {
@@ -870,7 +867,7 @@ static BOOL ApolloReturnToMailboxFromNavigationController(UINavigationController
     configuration.websiteDataStore = WKWebsiteDataStore.nonPersistentDataStore;
     configuration.processPool = self.webContext.processPool ?: [WKProcessPool new];
     self.webView = [[WKWebView alloc] initWithFrame:CGRectZero configuration:configuration];
-    self.webView.customUserAgent = ApolloModernMailboxUserAgent();
+    self.webView.customUserAgent = ApolloWebJSONMobileBrowserUserAgent();
     self.webView.navigationDelegate = self;
     self.webView.UIDelegate = self;
     [self.webView addObserver:self

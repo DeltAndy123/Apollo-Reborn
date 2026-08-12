@@ -822,7 +822,7 @@ static NSArray<NSHTTPCookie *> *ApolloUserFlairCookiesFromHeader(NSString *heade
     self.web.navigationDelegate = self;
     self.web.alpha = 0.011;
     self.web.userInteractionEnabled = NO;
-    self.web.customUserAgent = @"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
+    self.web.customUserAgent = ApolloWebJSONBrowserUserAgent();
     [window insertSubview:self.web atIndex:0];
     ApolloWebSessionEntry *session = ApolloActiveWebSession();
     NSArray<NSHTTPCookie *> *cookies = ApolloUserFlairCookiesFromHeader(session.cookieHeader);
@@ -2387,7 +2387,7 @@ static NSMutableURLRequest *ApolloUserFlairWebRequest(NSString *path, NSDictiona
     if (session.modhash.length > 0) [request setValue:session.modhash forHTTPHeaderField:@"X-Modhash"];
     [request setValue:@"application/x-www-form-urlencoded" forHTTPHeaderField:@"Content-Type"];
     [request setValue:@"https://www.reddit.com" forHTTPHeaderField:@"Origin"];
-    [request setValue:(sUserAgent.length > 0 ? sUserAgent : @"Apollo iOS") forHTTPHeaderField:@"User-Agent"];
+    [request setValue:ApolloWebJSONBrowserUserAgent() forHTTPHeaderField:@"User-Agent"];
     return request;
 }
 
@@ -2416,7 +2416,7 @@ static id ApolloUserFlairFetchWebOptions(NSString *subreddit, id completion) {
     currentRequest.HTTPShouldHandleCookies = NO;
     currentRequest.timeoutInterval = 25.0;
     [currentRequest setValue:webSession.cookieHeader forHTTPHeaderField:@"Cookie"];
-    [currentRequest setValue:(sUserAgent.length > 0 ? sUserAgent : @"Apollo iOS") forHTTPHeaderField:@"User-Agent"];
+    [currentRequest setValue:ApolloWebJSONBrowserUserAgent() forHTTPHeaderField:@"User-Agent"];
 
     NSURLSession *session = [NSURLSession sessionWithConfiguration:[NSURLSessionConfiguration ephemeralSessionConfiguration]];
     dispatch_group_t group = dispatch_group_create();

@@ -3009,7 +3009,12 @@ static void ApolloCompleteRedditNativeMediaUpload(NSData *mediaData, NSURL *medi
     } else if (cookieMode) {
         ApolloLog(@"[RedditUpload] Keyless posting account — leasing media under its own web identity");
     }
-    NSString *userAgent = sUserAgent.length > 0 ? sUserAgent : defaultUserAgent;
+    // cookieMode covers both keyless leases below — the old-reddit cookie POST
+    // and the own-bearer oauth lease, whose bearer is minted from the same web
+    // session — so both must present the browser identity, not the OAuth app's.
+    NSString *userAgent = cookieMode
+        ? ApolloWebJSONBrowserUserAgent()
+        : (sUserAgent.length > 0 ? sUserAgent : defaultUserAgent);
     if (ApolloRedditNativeUploadAttemptIsCancelled(attempt, @"before-media-upload")) return;
 
     attempt.stage = @"media-upload";

@@ -12,6 +12,7 @@
 #import "ApolloDirectChatWeb.h"
 #import "settings/ApolloAISettingsViewController.h"
 #import "ApolloWebSessionStore.h"
+#import "ApolloWebJSON.h"            // ApolloWebJSONDefaultBrowserUserAgent
 #import "ApolloAccountCredentials.h"
 #import "ApolloState.h"
 #import "ApolloBadgeBookScraper.h"   // ApolloBadgeBookInvalidate() — Clear Tweak Caches
@@ -84,6 +85,7 @@ typedef NS_ENUM(NSInteger, Tag) {
     TagGiphyAPIKey,
     TagRedirectURI,
     TagUserAgent,
+    TagWebSessionUserAgent,
     TagTrendingSubredditsSource,
     TagRandomSubredditsSource,
     TagRandNsfwSubredditsSource,
@@ -131,6 +133,25 @@ typedef NS_ENUM(NSInteger, Tag) {
         }
     }
     return schemes;
+}
+
+// A deliberately loose sanity check on the Web Session User Agent override —
+// it exists to catch the two mistakes that silently break API-Key-Free Mode,
+// not to validate UA grammar. Reddit must read these requests as a browser, so
+// a string that isn't browser-shaped, or that is simply the OAuth identity
+// copied across, is flagged. Empty means "use the built-in default".
+- (BOOL)isWebSessionUserAgentPlausible:(NSString *)userAgent {
+    if (userAgent.length == 0) return YES;
+    if (![userAgent hasPrefix:@"Mozilla/"]) return NO;
+    if (sUserAgent.length > 0 && [userAgent isEqualToString:sUserAgent]) return NO;
+    return YES;
+}
+
+- (void)apollo_applyWebSessionUserAgentTextColorToCell:(UITableViewCell *)cell {
+    UITextField *textField = [self apollo_textFieldInCell:cell];
+    if (!textField) return;
+    textField.textColor = [self isWebSessionUserAgentPlausible:textField.text]
+        ? [UIColor labelColor] : [UIColor systemRedColor];
 }
 
 - (BOOL)isRedirectURISchemeValid:(NSString *)uriString {
@@ -1167,9 +1188,35 @@ typedef NS_ENUM(NSInteger, Tag) {
         }
                                   onSelect:nil];
 
+    // Escape hatch, not a knob anyone should need. These requests authenticate
+    // as a plain reddit.com browser, and the built-in string is what makes
+    // Reddit treat them as one — offered here so a user can work around a
+    // future block without waiting on a release. Red text means the value looks
+    // like something other than a browser, most damagingly the API User Agent,
+    // which is what collapses mature listings to u/redditmaturecontent.
+    ApolloSettingsRow *webSessionUA =
+        [ApolloSettingsRow customRowWithID:@"api.webSessionUserAgent"
+                                      cell:^UITableViewCell *(__unused UITableView *tableView, __unused ApolloSettingsRow *row) {
+            UITableViewCell *cell = [weakSelf stackedTextFieldCellWithIdentifier:@"Cell_API_WebSessionUA"
+                                                                          label:@"Web Session User Agent"
+                                                                    placeholder:ApolloWebJSONDefaultBrowserUserAgent
+                                                                           text:sWebSessionUserAgent
+                                                                            tag:TagWebSessionUserAgent
+                                                                         detail:@"Leave empty unless API-Key-Free Mode has stopped working. "
+                                                                                 "Use a plain browser user agent, not an API or app user agent."];
+            [weakSelf apollo_applyWebSessionUserAgentTextColorToCell:cell];
+            return cell ?: [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil];
+        }
+                                  onSelect:nil];
+    // Only meaningful while the mode it affects is on, and hiding it keeps the
+    // field out of reach of users who have no reason to touch it — same gating
+    // as the web-session sign-in row above.
+    webSessionUA.visible = ^BOOL { return sWebJSONEnabled; };
+
     return [ApolloSettingsSection sectionWithTitle:@"Experimental"
                                             footer:@"Sign in to reddit.com instead of using API keys."
-                                              rows:@[ webJSON, webSessionLogin, modernChat, modernModmail ]];
+                                              rows:@[ webJSON, webSessionLogin, modernChat, modernModmail,
+                                                      webSessionUA ]];
 }
 
 - (ApolloSettingsSection *)buildAPIKeysExtrasSection {
@@ -3084,6 +3131,12 @@ static NSInteger ApolloHeaderStylePickerValue(NSInteger index, BOOL blurAvailabl
         textField.text = [textField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
         sUserAgent = textField.text;
         [[NSUserDefaults standardUserDefaults] setValue:sUserAgent forKey:UDKeyUserAgent];
+    } else if (textField.tag == TagWebSessionUserAgent) {
+        textField.text = [textField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+        sWebSessionUserAgent = textField.text;
+        [[NSUserDefaults standardUserDefaults] setValue:sWebSessionUserAgent forKey:UDKeyWebSessionUserAgent];
+        textField.textColor = [self isWebSessionUserAgentPlausible:textField.text]
+            ? [UIColor labelColor] : [UIColor systemRedColor];
     } else if (textField.tag == TagTrendingSubredditsSource) {
         textField.text = [textField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
         if (textField.text.length == 0) {

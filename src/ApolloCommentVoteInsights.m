@@ -10,10 +10,6 @@
 
 static NSString *const kApolloCommentInsightsErrorDomain = @"ApolloCommentVoteInsights";
 static NSTimeInterval const kApolloCommentInsightsCacheLifetime = 120.0;
-static NSString *const kApolloCommentInsightsDesktopUA =
-    @"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
-     @"(KHTML, like Gecko) Version/17.0 Safari/605.1.15";
-
 @interface ApolloCommentVoteInsight ()
 @property (nonatomic) double upvotePercent;
 @property (nonatomic) long long reportedUpvotes;
@@ -500,7 +496,7 @@ void ApolloFetchCommentVoteInsight(NSString *fullName, NSString *author,
         cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:10.0];
     [request setValue:webSession.cookieHeader forHTTPHeaderField:@"Cookie"];
     [request setValue:@"text/html,application/xhtml+xml" forHTTPHeaderField:@"Accept"];
-    [request setValue:kApolloCommentInsightsDesktopUA forHTTPHeaderField:@"User-Agent"];
+    [request setValue:ApolloWebJSONBrowserUserAgent() forHTTPHeaderField:@"User-Agent"];
 
     CFAbsoluteTime startedAt = CFAbsoluteTimeGetCurrent();
     ApolloLog(@"[CommentInsights] fetching %@ for signed-in author", commentID);

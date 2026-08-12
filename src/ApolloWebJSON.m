@@ -15,15 +15,18 @@ NSString *const ApolloWebJSONSessionExpiredNotification = @"ApolloWebJSONSession
 NSString *const ApolloWebJSONEnabledDidChangeNotification = @"ApolloWebJSONEnabledDidChangeNotification";
 NSString *const ApolloWebJSONSyntheticBearerToken = @"apollo-webjson-cookie-session";
 
-// Web JSON authenticates as a normal reddit.com browser session. The custom
-// User-Agent setting belongs to OAuth and may intentionally identify another
-// approved client (for example Dystopia or RedReader). Reusing that identity on
-// cookie-authenticated www.reddit.com requests makes Reddit classify them as
-// third-party Data API traffic; mature listings then collapse to the
-// u/redditmaturecontent placeholder even though the account's 18+ preference is
-// enabled. Keep the two transports' identities separate.
-static NSString *ApolloWebJSONBrowserUserAgent(void) {
-    return defaultUserAgent;
+NSString *const ApolloWebJSONDefaultBrowserUserAgent =
+    @"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
+     "(KHTML, like Gecko) Version/26.0 Safari/605.1.15";
+
+NSString *ApolloWebJSONBrowserUserAgent(void) {
+    return sWebSessionUserAgent.length > 0 ? sWebSessionUserAgent
+                                           : ApolloWebJSONDefaultBrowserUserAgent;
+}
+
+NSString *ApolloWebJSONMobileBrowserUserAgent(void) {
+    return @"Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 "
+            "(KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1";
 }
 
 #pragma mark - Synthetic bearer helpers + bearer-ownership registry

@@ -314,6 +314,7 @@ BOOL ApolloBackupRestoreRestoreFromZipURL(NSURL *zipURL, NSString **outErrorTitl
     sImageChestAPIToken = [defaults stringForKey:UDKeyImageChestAPIToken];
     sRedirectURI = [defaults stringForKey:UDKeyRedirectURI];
     sUserAgent = [defaults stringForKey:UDKeyUserAgent];
+    sWebSessionUserAgent = [defaults stringForKey:UDKeyWebSessionUserAgent];
     sBlockAnnouncements = [defaults boolForKey:UDKeyBlockAnnouncements];
     sTrendingSubredditsSource = [defaults stringForKey:UDKeyTrendingSubredditsSource];    sRandomSubredditsSource = [defaults stringForKey:UDKeyRandomSubredditsSource];
     sRandNsfwSubredditsSource = [defaults stringForKey:UDKeyRandNsfwSubredditsSource];

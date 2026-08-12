@@ -6,6 +6,7 @@ NSString *sImgurClientId = nil;
 NSString *sImageChestAPIToken = nil;
 NSString *sRedirectURI = nil;
 NSString *sUserAgent = nil;
+NSString *sWebSessionUserAgent = nil;
 NSString *sRandomSubredditsSource = nil;
 NSString *sRandNsfwSubredditsSource = nil;
 NSString *sTrendingSubredditsSource = nil;

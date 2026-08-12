@@ -8,11 +8,6 @@
 
 NSString *const ApolloBadgeBookUserUpdatedNotification = @"ApolloBadgeBookUserUpdatedNotification";
 
-// Same desktop Safari UA the WKWebView fallback presents — Reddit serves the
-// server-rendered shreddit markup (trophy list + achievement-badge tags) to it.
-static NSString *const kApolloBBDesktopUA =
-    @"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
-
 #pragma mark - ApolloUserBadges
 
 @implementation ApolloUserBadges
@@ -663,7 +658,7 @@ static void ApolloBBGetHTML(NSString *urlString, NSString *cookieHeader,
     // request, leave it alone" marker (probes + upload leases use it too).
     url = ApolloWebJSONProbeURL(url) ?: url;
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
-    [request setValue:kApolloBBDesktopUA forHTTPHeaderField:@"User-Agent"];
+    [request setValue:ApolloWebJSONBrowserUserAgent() forHTTPHeaderField:@"User-Agent"];
     if (cookieHeader.length) [request setValue:cookieHeader forHTTPHeaderField:@"Cookie"];
 
     CFAbsoluteTime t0 = CFAbsoluteTimeGetCurrent();
@@ -812,7 +807,7 @@ static NSTimeInterval const kApolloBBWebFetchWatchdog = 90.0;
         self.web.navigationDelegate = self;
         self.web.alpha = 0.011;
         self.web.userInteractionEnabled = NO;
-        self.web.customUserAgent = kApolloBBDesktopUA;
+        self.web.customUserAgent = ApolloWebJSONBrowserUserAgent();
         [win insertSubview:self.web atIndex:0];
         [self loadPhase:self.startPhase];
     };

@@ -396,12 +396,6 @@ static NSArray<NSDictionary *> *ApolloSLDiskLoadRaw(NSString *key, double *outAg
 
 #pragma mark - Direct HTTP fast path
 
-// Same desktop Safari UA for both the direct GETs and the WKWebView fallback —
-// Reddit serves the fully server-rendered shreddit profile (header + right rail
-// with the Social Links section inline) to it.
-static NSString *const kApolloSLDesktopUA =
-    @"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
-
 // Minimal entity decode for the handful Reddit emits in attribute content.
 // &amp; must go LAST so "&amp;lt;" doesn't double-decode.
 static NSString *ApolloSLDecodeEntities(NSString *s) {
@@ -546,7 +540,7 @@ static void ApolloSLGetHTML(NSString *urlString, NSString *cookieHeader,
     // profile HTML.
     url = ApolloWebJSONProbeURL(url) ?: url;
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
-    [req setValue:kApolloSLDesktopUA forHTTPHeaderField:@"User-Agent"];
+    [req setValue:ApolloWebJSONBrowserUserAgent() forHTTPHeaderField:@"User-Agent"];
     if (cookieHeader.length) [req setValue:cookieHeader forHTTPHeaderField:@"Cookie"];
     CFAbsoluteTime t0 = CFAbsoluteTimeGetCurrent();
     NSURLSessionDataTask *task = [ApolloSLDirectSession() dataTaskWithRequest:req
@@ -715,7 +709,7 @@ static NSMutableArray<ApolloSLWebFetch *> *ApolloSLWebFetchQueue(void) {
         self.web = [[WKWebView alloc] initWithFrame:win.bounds configuration:config];
         self.web.navigationDelegate = self;
         self.web.alpha = 0.011; self.web.userInteractionEnabled = NO;
-        self.web.customUserAgent = kApolloSLDesktopUA;
+        self.web.customUserAgent = ApolloWebJSONBrowserUserAgent();
         [win insertSubview:self.web atIndex:0];
         NSString *urlString = [NSString stringWithFormat:@"https://www.reddit.com/user/%@/", ApolloSLEscapedUsername(self.username)];
         [self.web loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:urlString]]];

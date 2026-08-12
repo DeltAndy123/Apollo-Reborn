@@ -10,6 +10,7 @@ extern NSString *sImgurClientId;
 extern NSString *sImageChestAPIToken;
 extern NSString *sRedirectURI;
 extern NSString *sUserAgent;
+extern NSString *sWebSessionUserAgent;
 extern NSString *sRandomSubredditsSource;
 extern NSString *sRandNsfwSubredditsSource;
 extern NSString *sTrendingSubredditsSource;

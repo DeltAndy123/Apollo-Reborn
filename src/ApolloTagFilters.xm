@@ -375,7 +375,7 @@ static void ApolloTagKickKeylessPrefFetch(NSString *username) {
                                                            cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
                                                        timeoutInterval:10.0];
     [request setValue:session.cookieHeader forHTTPHeaderField:@"Cookie"];
-    [request setValue:([sUserAgent length] > 0 ? sUserAgent : defaultUserAgent) forHTTPHeaderField:@"User-Agent"];
+    [request setValue:ApolloWebJSONBrowserUserAgent() forHTTPHeaderField:@"User-Agent"];
     request.HTTPShouldHandleCookies = NO;
 
     NSURLSession *urlSession = [NSURLSession sessionWithConfiguration:[NSURLSessionConfiguration ephemeralSessionConfiguration]];

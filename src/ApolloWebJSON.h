@@ -274,6 +274,42 @@ NSURL *ApolloWebJSONProbeURL(NSURL *url);
 // JSON rewrite, no User-Agent stamping (they pick their UA deliberately).
 BOOL ApolloWebJSONURLIsProbe(NSURL *url);
 
+// The User-Agent every keyless request must carry (a plain desktop browser).
+//
+// The dividing line is WHERE the identity came from, not which header carries
+// it. Anything authenticated out of the web session belongs here: the raw
+// cookie, and equally the bearers derived from it (a token_v2 cookie, or an
+// accounts.reddit.com mint — see ApolloWebJSONKeylessOAuthBearer). Only a
+// bearer issued to Apollo's own registered OAuth app is real API traffic.
+//
+// The custom "User Agent" setting belongs to an OAuth app. Reusing that
+// identity on a web-session request makes Reddit classify it as third-party
+// Data API traffic; mature listings then collapse to the u/redditmaturecontent
+// placeholder even though the account's 18+ preference is enabled.
+//
+// Probe-marked requests set their own headers, so the transport chokepoint
+// cannot stamp this for them — call it explicitly whenever the request is
+// authenticated out of the web session.
+//
+// This is the desktop identity: use it for every NSURLSession request, and for
+// the offscreen scraper WebViews that parse old/desktop Reddit markup.
+//
+// Returns UDKeyWebSessionUserAgent when the user has set one (an escape hatch
+// for the day Reddit starts treating the default string badly), otherwise
+// ApolloWebJSONDefaultBrowserUserAgent.
+NSString *ApolloWebJSONBrowserUserAgent(void);
+
+// The built-in value, exposed so Settings can show it as the field's
+// placeholder. Read the effective identity through the function above.
+extern NSString *const ApolloWebJSONDefaultBrowserUserAgent;
+
+// The mobile counterpart, for WKWebViews that must receive Reddit's mobile
+// markup — the modern mailbox/chat UI is driven by shadow-DOM and layout hooks
+// written against it, and a desktop UA silently serves the desktop page and
+// breaks all of them. Same web-session identity rules as above; the split is
+// about which markup Reddit returns, not about who we claim to be.
+NSString *ApolloWebJSONMobileBrowserUserAgent(void);
+
 #ifdef __cplusplus
 }
 #endif

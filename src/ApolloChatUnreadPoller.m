@@ -10,6 +10,7 @@
 #import "ApolloBarkNotifications.h"
 #import "ApolloCommon.h"
 #import "ApolloDirectChatWeb.h"
+#import "ApolloWebJSON.h"
 #import "ApolloWebSessionLoginViewController.h"
 #import "ApolloWebSessionStore.h"
 #import "UserDefaultConstants.h"
@@ -23,12 +24,6 @@ static const NSTimeInterval kChatPollMintBackoff = 15.0 * 60.0;
 static const NSTimeInterval kChatPollAuthBackoff = 30.0 * 60.0;
 static const NSTimeInterval kChatPollServerBackoff = 5.0 * 60.0;
 static const NSTimeInterval kChatPollRequestTimeout = 15.0;
-
-// Matches the modern mailbox webview's Safari persona (ApolloDirectChatWeb.xm)
-// so the token_v2 mint looks like the same browser session Reddit harvested.
-static NSString *const kChatPollMintUserAgent =
-    @"Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 "
-    @"(KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
 
 // Minimal sync filter: one m.room.message per room for previews, no state, no
 // ephemeral traffic. Reddit's com.reddit.* counters always ride at the top
@@ -210,7 +205,7 @@ static void ApolloChatPollMintBearer(NSString *username, NSString *cookieHeader,
     minter.cookiePollsLeft = 8;
     minter.webView = [[WKWebView alloc] initWithFrame:CGRectZero configuration:config];
     minter.webView.navigationDelegate = minter;
-    minter.webView.customUserAgent = kChatPollMintUserAgent;
+    minter.webView.customUserAgent = ApolloWebJSONMobileBrowserUserAgent();
     [ApolloChatPollActiveMinters() addObject:minter];
 
     // Seed the stored session into the isolated jar, minus the dead
