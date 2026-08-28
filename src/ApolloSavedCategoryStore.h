@@ -36,4 +36,11 @@ FOUNDATION_EXPORT BOOL ApolloSavedCategoryRename(NSString *oldName, NSString *ne
 // Deletes a category (its saved items are untouched) and its appearance entry.
 FOUNDATION_EXPORT void ApolloSavedCategoryDelete(NSString *name);
 
+// Moves a saved item (Reddit fullname, t3_.../t1_...) into `categoryName`,
+// removing it from whatever category it was in before. Pass nil/empty for
+// `categoryName` to just remove it from all categories ("None"). No-op if the
+// named category doesn't exist — this never creates one implicitly. Does not
+// itself save/unsave the item; callers gate on RDKLink/RDKComment.saved.
+FOUNDATION_EXPORT void ApolloSavedCategorySetItemCategory(NSString *fullName, NSString *_Nullable categoryName);
+
 NS_ASSUME_NONNULL_END
