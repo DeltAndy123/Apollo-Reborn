@@ -164,6 +164,7 @@ ApolloReborn_FILES = \
     $(SRC_DIR)/ApolloSavedCategoryAppearance.m \
     $(SRC_DIR)/ApolloSavedCategoryStore.m \
     $(SRC_DIR)/ApolloSavedCategoryIndicator.xm \
+    $(SRC_DIR)/ApolloSavedCategoryMenu.xm \
     $(SRC_DIR)/ApolloSavedCategories.xm \
     $(SRC_DIR)/ApolloSwiftIvarBridge.swift \
     $(SRC_DIR)/ApolloUserFlair.xm \
