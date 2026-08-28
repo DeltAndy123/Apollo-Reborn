@@ -56,6 +56,13 @@ FOUNDATION_EXPORT void ApolloSavedCategoryRemoveAppearance(NSString *name);
 // staleness.
 FOUNDATION_EXPORT NSString *_Nullable ApolloSavedCategoryForItemID(NSString *fullName);
 
+// Forces the next ApolloSavedCategoryForItemID() call to rebuild its index.
+// The index self-invalidates on NSUserDefaults / iCloud-KVS change
+// notifications, but this tweak's own writes need the *next* read to be
+// correct synchronously (the "..." menu redraws an item's category right after
+// changing it), so ApolloSavedCategoryStore calls this on every write.
+FOUNDATION_EXPORT void ApolloSavedCategoryInvalidateItemIndex(void);
+
 // Apollo's own stock corner-indicator color (Hopper: sub_100752f2c decoding
 // Swift small strings "07BE00"/"00940F", selected by a dark-mode bool).
 // Shared by the indicator hook (a category with an icon but no custom color

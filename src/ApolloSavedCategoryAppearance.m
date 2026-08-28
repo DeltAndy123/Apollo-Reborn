@@ -105,14 +105,25 @@ void ApolloSavedCategoryRemoveAppearance(NSString *name) {
 // through synchronously (Hopper: sub_1002590c4 / sub_100259e8c). Reading the
 // same JSON here directly is therefore never stale; we only cache to avoid
 // paying JSON decode + index-build cost on every cell render.
+// File-scope so ApolloSavedCategoryInvalidateItemIndex() can reach it. The
+// notification observers below still cover changes made by Apollo itself and
+// by iCloud sync; the explicit entry point exists because this tweak's OWN
+// writes need the next read to be correct *synchronously* (the "..." menu
+// re-reads the item's category to redraw its row immediately after a change),
+// rather than whenever the notification happens to be delivered.
+static BOOL sApolloSavedCategoryIndexDirty = YES;
+
+void ApolloSavedCategoryInvalidateItemIndex(void) {
+    sApolloSavedCategoryIndexDirty = YES;
+}
+
 static NSDictionary<NSString *, NSString *> *ApolloSavedCategoryReverseIndex(void) {
     static NSDictionary<NSString *, NSString *> *cached;
-    static BOOL dirty = YES;
     static dispatch_once_t setupOnce;
 
     dispatch_once(&setupOnce, ^{
         void (^invalidate)(NSNotification *) = ^(NSNotification *note) {
-            dirty = YES;
+            sApolloSavedCategoryIndexDirty = YES;
         };
         // Apollo's own native category UI (and this tweak's settings screen)
         // both write through NSUserDefaults, which posts this notification —
@@ -130,7 +141,7 @@ static NSDictionary<NSString *, NSString *> *ApolloSavedCategoryReverseIndex(voi
                                                         usingBlock:invalidate];
     });
 
-    if (!dirty && cached) return cached;
+    if (!sApolloSavedCategoryIndexDirty && cached) return cached;
 
     NSUserDefaults *groupDefaults = [[NSUserDefaults alloc] initWithSuiteName:kSavedCategoryGroupSuiteName];
     NSData *data = [groupDefaults dataForKey:kSavedCategoriesDatabaseKey];
@@ -159,7 +170,7 @@ static NSDictionary<NSString *, NSString *> *ApolloSavedCategoryReverseIndex(voi
     }
 
     cached = [index copy];
-    dirty = NO;
+    sApolloSavedCategoryIndexDirty = NO;
     return cached;
 }
 
