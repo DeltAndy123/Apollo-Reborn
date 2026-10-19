@@ -29,14 +29,14 @@
 # Xcode 27 / Device Hub:
 #   - The simulator GUI is now Device Hub (com.apple.dt.Devices), not Simulator.app;
 #     this script opens whichever is present.
-#   - `--drive`'s screenshot is taken via `simctl io screenshot`, not idb — idb's
-#     screenshot RPC doesn't work against Xcode 27's iOS-27 sims. `idb ui describe-all`
-#     (the accessibility tree) is unaffected.
-#   - idb's HID commands (`idb ui tap`/`text`/swipe) are currently broken under Xcode 27:
-#     idb_companion 1.1.8 hardcodes SimulatorKit.framework at
+#   - idb works under Xcode 27 with idb_companion 1.5.1 or later
+#     (`brew upgrade idb-companion`): describe-all, tap and screenshot all work.
+#     Older builds (e.g. 1.1.8) hardcode SimulatorKit.framework at
 #     Contents/Developer/Library/PrivateFrameworks/, which Xcode 27 moved to
-#     Contents/SharedFrameworks/. Xcode.app's bundle can't be patched (write-protected),
-#     so for now drive taps manually in Device Hub until idb_companion ships a fix.
+#     Contents/SharedFrameworks/, so their `idb ui tap`/`text`/swipe fail and their
+#     screenshot RPC returns "No Image available to encode".
+#   - `--drive`'s screenshot is taken via `simctl io screenshot`, which works with
+#     any idb version.
 #
 # Env overrides:
 #   BASE_IPA (./apollo-base.ipa)  BUNDLE_ID (com.christianselig.Apollo)
@@ -388,10 +388,9 @@ if [[ "$DO_DRIVE" == 1 ]]; then
     else
         echo "  (idb not found on PATH; set IDB=/path/to/idb — see AGENTS.md)" >&2
     fi
-    # Screenshot via simctl, not idb: idb_companion's screenshot RPC returns
+    # Screenshot via simctl, not idb: idb_companion older than 1.5.1 returns
     # "No Image available to encode" against Xcode 27 / Device Hub's iOS-27
-    # simulators (its screen-capture path predates Device Hub's renderer).
-    # `simctl io screenshot` is unaffected and works on every Xcode version.
+    # simulators. `simctl io screenshot` works with any idb or Xcode version.
     xcrun simctl io "$DEV" screenshot "$WORK_DIR/screenshot.png" >/dev/null 2>&1 || true
     log "idb/simctl: wrote $WORK_DIR/uitree.json and $WORK_DIR/screenshot.png"
 fi
