@@ -5,6 +5,7 @@
 #import "UserDefaultConstants.h"
 #import "ApolloWebSessionStore.h"
 #import "ApolloWebJSON.h"
+#import "ApolloRateLimitLanes.h"
 #import <UIKit/UIKit.h>
 
 static NSString *const kApolloRouteUpdatesURL =
@@ -374,5 +375,14 @@ NSString *ApolloWebJSONRouteStatusSummary(void) {
     NSDictionary *updates = ApolloWebJSONRouteUpdatesStatus();
     [lines addObject:[NSString stringWithFormat:@"Route updates: %@, last checked %@", updates[@"result"], updates[@"lastChecked"]]];
     [lines addObject:[@"Overrides: " stringByAppendingString:ApolloWebJSONRouteRemoteTableDescription()]];
+    // What Reddit reported to this account per kind of request (no tokens:
+    // only the public client id claim).
+    [lines addObject:@"Rate limits (latest headers per lane, since launch):"];
+    [lines addObjectsFromArray:ApolloRateLimitLaneSummaryLines(account)];
+    NSArray<NSString *> *cidLines = ApolloWebJSONTokenClientIDLines(account);
+    if (cidLines.count) [lines addObject:@"Token client IDs (cid claim, decoded on the phone):"];
+    for (NSString *line in cidLines) [lines addObject:[@"  " stringByAppendingString:line]];
+    NSString *check = ApolloRateLimitBudgetCheckResult();
+    if (check.length) [lines addObject:[@"GraphQL budget check: " stringByAppendingString:check]];
     return [lines componentsJoinedByString:@"\n"];
 }

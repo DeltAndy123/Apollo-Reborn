@@ -23,6 +23,7 @@
 #import "ApolloUsageHeartbeat.h"
 #import "ApolloUpdateChecker.h"
 #import "ApolloWebJSONRouteUpdates.h"
+#import "ApolloRateLimitLanes.h"
 #import "ApolloPushNotifications.h"
 #import "ApolloBarkNotifications.h"
 #import "ApolloLiquidGlassIconSelectionState.h"
@@ -3820,6 +3821,12 @@ NSString *ApolloRandomPickExcluding(BOOL nsfw, NSString *excluded) {
     }
     if (sWebJSONEnabled) {
         ApolloWebJSONNoteResponse(sent, task.response);
+    }
+    // Reddit's rate-limit headers per kind of request, for the Routes screen.
+    // The lane check is a host compare; non-Reddit tasks stop there.
+    if (ApolloRateLimitLaneForRequest(sent) != ApolloRateLimitLaneNone) {
+        ApolloRateLimitRecordResponse(sent, task.response,
+                                      ApolloWebJSONAccountMarkedInURL(sent.URL) ?: ApolloActiveWebSessionUsername());
     }
     %orig;
 }

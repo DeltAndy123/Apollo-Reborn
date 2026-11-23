@@ -408,6 +408,7 @@ ApolloReborn_FILES = \
     $(SRC_DIR)/ApolloWebAuthViewController.m \
     $(SRC_DIR)/ApolloWebAuthPopupViewController.m \
     $(SRC_DIR)/ApolloWebJSON.m \
+    $(SRC_DIR)/ApolloRateLimitLanes.m \
     $(SRC_DIR)/ApolloReduceRateLimiting.m \
     $(SRC_DIR)/ApolloWebJSONWriteRepair.m \
     $(SRC_DIR)/ApolloWebJSONRoutes.m \
@@ -530,6 +531,11 @@ ApolloReborn_BUNDLE_RESOURCES = \
     assets/bark-icons/low-battery.png \
     assets/bark-icons/palette.png \
     widgets/Sources/Assets.xcassets/ApolloAvatar.imageset/apollo-avatar@3x.png
+
+# Developer-only diagnostics (e.g. the Routes screen's "Check GraphQL budget",
+# which sends test requests). This test branch turns them on for every build,
+# FINALPACKAGE=1 included, so CI artifacts from it have them.
+ApolloReborn_CFLAGS += -DAPOLLO_DEV_BUILD=1
 
 # Temporary theme-RE instrumentation (theme builder spike). Opt-in only:
 #   APOLLO_THEME_RE=1 scripts/run-in-sim.sh

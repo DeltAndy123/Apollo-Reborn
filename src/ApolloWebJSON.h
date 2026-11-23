@@ -171,6 +171,25 @@ void ApolloWebJSONPrepareRouteBearer(NSString *username);
 // hook mints before sending an ApolloWebJSONPathNeedsWebBearer request then.
 BOOL ApolloWebJSONWebBearerNeedsMint(NSString *username);
 
+// The account marker the rewrite stamped on `url` (the web-session account a
+// keyless request belongs to), or nil. Used to file a response's rate-limit
+// headers under the right account (ApolloRateLimitLanes.h).
+NSString *ApolloWebJSONAccountMarkedInURL(NSURL *url);
+
+// For the Routes screen: the `cid` claim of `username`'s token_v2 cookie and of
+// its minted bearer (if one is cached), and which one oauth.reddit.com requests
+// use now, one line each. Decoded locally; never includes the token. Empty
+// without a web session.
+NSArray<NSString *> *ApolloWebJSONTokenClientIDLines(NSString *username);
+
+#if APOLLO_DEV_BUILD
+// Dev builds only (the Routes screen's "Check GraphQL budget"): a bearer for
+// Reddit's desktop web client (cid 0R-WAMhuoo-MyQ): the fresh token_v2 cookie
+// when it is one, else one minted from the session cookie and not cached.
+// `completion` runs on any thread with nil and a reason on failure.
+void ApolloWebJSONDevDesktopWebBearer(NSString *username, void (^completion)(NSString *token, NSString *source));
+#endif
+
 // Hydrates the legacy single-session globals from the keychain, migrating any
 // legacy NSUserDefaults cookie value, then any legacy single-global session,
 // into the per-account ApolloWebSessionStore (see that file's harvest path for

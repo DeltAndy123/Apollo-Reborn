@@ -2375,6 +2375,25 @@ static void ApolloWebJSONDropMintedBearerForUser(NSString *username) {
     }
 }
 
+// The token service request a web-session bearer is minted with: POST
+// accounts.reddit.com/api/access_token with the session cookie and a public
+// Reddit web client id (Basic auth, empty secret). The probe fragment keeps the
+// transport hooks' hands off it (no rewrite, no expiry accounting, no bearer
+// capture); it never reaches the wire.
+static NSMutableURLRequest *ApolloWebJSONAccessTokenRequest(NSString *cookieHeader, NSString *clientID) {
+    NSURL *mintURL = ApolloWebJSONProbeURL([NSURL URLWithString:@"https://accounts.reddit.com/api/access_token"]);
+    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:mintURL];
+    req.HTTPMethod = @"POST";
+    NSString *basic = [[[clientID stringByAppendingString:@":"] dataUsingEncoding:NSUTF8StringEncoding] base64EncodedStringWithOptions:0];
+    [req setValue:[@"Basic " stringByAppendingString:basic] forHTTPHeaderField:@"Authorization"];
+    [req setValue:cookieHeader forHTTPHeaderField:@"Cookie"];
+    [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    [req setValue:ApolloWebJSONBrowserUserAgent() forHTTPHeaderField:@"User-Agent"];
+    req.HTTPBody = [@"{\"scopes\":[\"*\"]}" dataUsingEncoding:NSUTF8StringEncoding];
+    req.HTTPShouldHandleCookies = NO;
+    return req;
+}
+
 // Mint a fresh OAuth bearer for the web session. The stored token_v2 cookie
 // (~24h JWT) routinely ages out while reddit_session stays perfectly valid,
 // and as of 2026-07-22 www.reddit.com no longer rotates token_v2 via
@@ -2405,19 +2424,7 @@ static NSString *ApolloWebJSONMintWebBearerForAccount(NSString *username) {
             return nil;
         }
 
-        // The probe fragment keeps the transport hooks' hands off this request
-        // (no rewrite, no expiry accounting, no bearer capture); it never
-        // reaches the wire.
-        NSURL *mintURL = ApolloWebJSONProbeURL([NSURL URLWithString:@"https://accounts.reddit.com/api/access_token"]);
-        NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:mintURL];
-        req.HTTPMethod = @"POST";
-        NSString *basic = [[@"ohXpoqrZYub1kg:" dataUsingEncoding:NSUTF8StringEncoding] base64EncodedStringWithOptions:0];
-        [req setValue:[@"Basic " stringByAppendingString:basic] forHTTPHeaderField:@"Authorization"];
-        [req setValue:session.cookieHeader forHTTPHeaderField:@"Cookie"];
-        [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
-        [req setValue:ApolloWebJSONBrowserUserAgent() forHTTPHeaderField:@"User-Agent"];
-        req.HTTPBody = [@"{\"scopes\":[\"*\"]}" dataUsingEncoding:NSUTF8StringEncoding];
-        req.HTTPShouldHandleCookies = NO;
+        NSMutableURLRequest *req = ApolloWebJSONAccessTokenRequest(session.cookieHeader, @"ohXpoqrZYub1kg");
         // Small JSON exchange — same budget class as the media-hydration
         // path's 2.5s per-request bound (failures are remembered above, so a
         // dead session never repays this on every composer open).
@@ -2527,6 +2534,82 @@ BOOL ApolloWebJSONWebBearerNeedsMint(NSString *username) {
     if (ApolloWebJSONWebBearerHeldForUser(key) || ApolloWebJSONMintFailedRecentlyForUser(key)) return NO;
     return ApolloWebJSONReadyWebBearer(key).length == 0;
 }
+
+#pragma mark - Token client IDs and rate-limit attribution (Routes screen)
+
+NSString *ApolloWebJSONAccountMarkedInURL(NSURL *url) {
+    return ApolloWebJSONAccountFromURL(url);
+}
+
+// The `cid` claim of a JWT, or nil. Only this claim is read; the token itself
+// is never returned, logged or copied.
+static NSString *ApolloWebJSONJWTClientID(NSString *jwt) {
+    id cid = ApolloWebJSONJWTClaims(jwt)[@"cid"];
+    return [cid isKindOfClass:[NSString class]] && [cid length] > 0 ? cid : nil;
+}
+
+NSArray<NSString *> *ApolloWebJSONTokenClientIDLines(NSString *username) {
+    NSString *key = username.lowercaseString;
+    NSMutableArray<NSString *> *lines = [NSMutableArray array];
+    if (key.length == 0) return lines;
+    ApolloWebSessionEntry *session = ApolloWebSessionFor(key);
+    if (session.cookieHeader.length == 0) return lines;
+    NSTimeInterval now = [[NSDate date] timeIntervalSince1970];
+    NSString *tokenV2 = ApolloWebJSONCookieValueFromHeader(session.cookieHeader, @"token_v2");
+    if (tokenV2.length > 0) {
+        NSString *cid = ApolloWebJSONJWTClientID(tokenV2) ?: @"(no cid claim)";
+        BOOL fresh = ApolloWebJSONJWTExpiry(tokenV2) > now + 300;
+        [lines addObject:[NSString stringWithFormat:@"token_v2 cookie: %@%@", cid, fresh ? @"" : @" (expired)"]];
+    } else {
+        [lines addObject:@"token_v2 cookie: none"];
+    }
+    NSString *minted = ApolloWebJSONCachedMintedBearerForUser(key);
+    if (minted.length > 0) {
+        [lines addObject:[NSString stringWithFormat:@"Minted bearer: %@", ApolloWebJSONJWTClientID(minted) ?: @"(no cid claim)"]];
+    }
+    // Which one oauth.reddit.com requests use now (ApolloWebJSONReadyWebBearer).
+    NSString *ready = ApolloWebJSONReadyWebBearer(key);
+    NSString *inUse = ready.length == 0 ? @"none ready" : [ready isEqualToString:tokenV2] ? @"token_v2" : @"minted bearer";
+    [lines addObject:[@"In use for oauth.reddit.com: " stringByAppendingString:inUse]];
+    return lines;
+}
+
+#if APOLLO_DEV_BUILD
+void ApolloWebJSONDevDesktopWebBearer(NSString *username, void (^completion)(NSString *token, NSString *source)) {
+    NSString *key = username.lowercaseString;
+    ApolloWebSessionEntry *session = key.length ? ApolloWebSessionFor(key) : nil;
+    if (session.cookieHeader.length == 0) {
+        completion(nil, @"no web session");
+        return;
+    }
+    // token_v2 is the desktop web client's own token (cid 0R-WAMhuoo-MyQ).
+    NSString *tokenV2 = ApolloWebJSONUsableTokenV2ForSession(session);
+    if (tokenV2.length > 0 && [ApolloWebJSONJWTClientID(tokenV2) isEqualToString:@"0R-WAMhuoo-MyQ"]) {
+        completion(tokenV2, @"token_v2 cookie");
+        return;
+    }
+    // Otherwise mint one for the desktop client the way the mobile bearer is
+    // minted. Kept out of the minted-bearer cache: it's only for this check.
+    NSMutableURLRequest *req = ApolloWebJSONAccessTokenRequest(session.cookieHeader, @"0R-WAMhuoo-MyQ");
+    req.timeoutInterval = 10;
+    [[[NSURLSession sharedSession] dataTaskWithRequest:req
+                                     completionHandler:^(NSData *data, NSURLResponse *resp, NSError *err) {
+        NSInteger status = [resp isKindOfClass:[NSHTTPURLResponse class]] ? ((NSHTTPURLResponse *)resp).statusCode : 0;
+        NSDictionary *json = data.length ? [NSJSONSerialization JSONObjectWithData:data options:0 error:NULL] : nil;
+        NSString *token = [json isKindOfClass:[NSDictionary class]] ? json[@"access_token"] : nil;
+        if (![token isKindOfClass:[NSString class]] || token.length == 0) {
+            completion(nil, [NSString stringWithFormat:@"desktop mint failed (HTTP %ld)", (long)status]);
+            return;
+        }
+        NSString *subject = ApolloWebJSONJWTClaims(token)[@"sub"];
+        if ([subject isKindOfClass:[NSString class]] && [subject hasPrefix:@"loid"]) {
+            completion(nil, @"desktop mint returned a signed-out token");
+            return;
+        }
+        completion(token, [NSString stringWithFormat:@"minted for %@", ApolloWebJSONJWTClientID(token) ?: @"?"]);
+    }] resume];
+}
+#endif
 
 #pragma mark - Minted bearer for bearer routes
 
